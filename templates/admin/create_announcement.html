@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Create Announcement{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Post Announcement</h2>
+	</div>
+</div>
+
+<div class="card" style="max-width:560px;">
+	<div class="card-header">
+		<i class="bi bi-megaphone me-2"></i>New Announcement
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type=hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<!-- Title Input -->
+			<div class="mb-3">
+				<label class="form-label">Title</label>
+				<input 
+				       type="text" 
+				       name="title" 
+				       class="form-control" 
+				       placeholder="Announcement title" 
+				       required
+				       />
+			</div>
+
+			<!-- Content Textarea -->
+			<div class="mb-3">
+				<label class="form-label">Content</label>     
+				<textarea 
+				       name="content" 
+				       class="form-control" 
+				       rows="5" 
+				       placeholder="Write your announcement..." 
+				       required
+				       ></textarea>
+			</div>
+
+			<!-- Target Class Select -->
+			<div class="mb-4">
+				<label class="form-label">Class (leave general if for all)</label>    
+				<select name="class_id" class="form-select" required>
+					<option value="">All Classes</option>
+					{% for c in classes %}
+					<option value="{{ c.id }}">{{ c.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<!-- Submit Button -->
+			<button type="submit" class="btn btn-primary w-100">
+				<i class="bi bi-send me-2"></i>Post Announcement
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

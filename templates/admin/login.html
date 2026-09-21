@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block auth_content %}
+<style>
+  .login-wrap {
+	  min-height: 100vh;
+	  display: flex;
+	  background: #0f1f3d;
+  }
+  .login-left {
+	  flex: 1;
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  padding: 48px;
+	  background: linear-gradient(135deg, #0f1f3d 0%, #162847 60%, #1a3260 100%);
+	  position: relative;
+	  overflow: hidden;
+  }
+  .login-left::before {
+	  content: '';
+	  position: absolute;
+	  width: 500px; height: 500px;
+	  border-radius: 50%;
+	  border: 80px solid rgba(245,158,11,.06);
+	  top: -100px; left: -100px;
+  }
+  .login-left::after {
+	  content: '';
+	  position: absolute;
+	  width: 300px; height: 300px;
+	  border-radius: 50%;
+	  border: 50px solid rgba(245,158,11,.04);
+	  bottom: -80px; right: -80px;
+  }
+  .login-hero { position: relative; z-index: 1; max-width: 420px; color: #fff; }
+  .login-hero h1 {
+	  font-family: 'Playfair Display', serif;
+	  font-size: 2.8rem;
+	  line-height: 1.15;
+	  margin-bottom: 16px;
+  }
+  .login-hero h1 span { color: #f59e0b; }
+  .login-hero p { color: rgba(255,255,255,.6); font-size: 1rem; line-height: 1.7; }
+  .feature-list { list-style: none; padding: 0; margin-top: 28px; }
+  .feature-list li {
+	  color: rgba(255,255,255,.7);
+	  font-size: .875rem;
+	  padding: 6px 0;
+	  display: flex;
+	  align-items: center;
+	  gap: 10px;
+  }
+  .feature-list li i { color: #f59e0b; }
+  .login-right {
+	  width: 440px;
+	  background: #fff;
+	  display: flex;
+	  align-items: center;
+	  padding: 48px;
+  }
+  .login-form-wrap p { color: #64748b; font-size: .875rem; margin-bottom: 32px; }
+  .form-floating label { font-size: .875rem; color: #64748b; }
+  .btn-login {
+	  width: 100%;
+	  background: #0f1f3d;
+	  color: #fff;
+	  border: none;
+	  border-radius: 10px;
+	  padding: 13px;
+	  font-size: .95rem;
+	  font-weight: 600;
+	  letter-spacing: .3px;
+	  transition: background .2s, transform .1s;
+	  margin-top: 8px;
+  }
+  .btn-login:hover { background: #162847; transform: translateY(-1px); }
+  @media (max-width: 768px) {
+	  .login-left { display: none; }
+	  .login-right { width: 100%; }
+  }
+</style>
+
+<div class="login-wrap">
+	<div class="login-left">
+		<div class="login-hero">
+			<h1>Edu<span>Manage</span><br/>Schtem</h1>
+			<p>A complete platform for managing students, teachers, fees, attendance, and academic results.</p>
+			<ul class="feature-list">
+				<li><i class="bi bi-check-circle-fill"></i> Student & Teacher Management</li>
+				<li><i class="bi bi-check-circle-fill"></i> Attendance Tracking</li>
+				<li><i class="bi bi-check-circle-fill"></i> Results & Report Cards</li>
+				<li><i class="bi bi-check-circle-fill"></i> Fee Management</li>
+				<li><i class="bi bi-check-circle-fill"></i> Parent Portal</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="login-right">
+		<div class="login-form-wrap">
+			<h2>Welcome back</h2>
+			<p>Sign in to your account to continue</p>
+
+			{% with messages = get_flashed_messages(with_categories=true) %}
+			{% for category, message in messages %}
+			<div class="alert alert-{{ category }} mb-3" style="border-radius:10px;font-size:.875rem;">
+				{{ message }}
+			</div>
+			{% endfor %}
+			{% endif %}
+			{% endwith %}
+
+			<form method="POST" action="{{ url_for('auth.login') }}">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+				<div class="mb-3">
+					<label class="form-label">Username</label>
+					<input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus/>
+				</div>
+				<div class="mb-4">
+					<label class="form-label">Password</label>
+					<input type="password" name="password" class="form-control" placeholder="Enter your password" required/>
+				</div>
+				<button type="submit" class="btn-loign">Sign In <i class="bi bi-arrow-right ms-1"></i></button>
+			</form>
+		</div>
+	</div>
+</div>
+{% endblock %}

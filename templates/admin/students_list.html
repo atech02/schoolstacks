@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Students{% endblock %}
+{% block page_title %}Students{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>All Students</h2>
+		<p>{{ students|length }} students enrolled</p>
+	</div>
+	<a href="{{ url_for('admin.register_student') }}" class="btn btn-primary">
+		            <i class="bi bi-person-plus me-2"></i>Register Student
+	</a>
+</div>
+
+<div class="card">
+	<div class="card-body p-0">
+		<div class="table-responsive">  
+			<table class="table mb-0">
+				<thead>               
+					<tr>
+						<th>Admission No</th>
+						<th>Name</th>
+						<th>Gender</th>
+						<th>Class</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for s in students %}
+					<tr>
+						<td><span class="badge bg-light text-dark fw-bold">{{ s.admission_no }}</span></td>
+						<td><strong>{{ s.first_name }} {{ s.last_name }}</strong></td>
+						<td>{{ s.gender }}</td>
+						<td>{{ s.school_class.name if s.school_class else '—' }}</td>
+						<td>
+							<a href="{{ url_for('admin.pay_fees', student_id=s.id) }}" class="btn btn-sm btn-amber">
+								<i class="bi bi-cash me-1"></i>Pay Fees
+							</a>
+						</td>
+					</tr>
+					{% else %}                       
+					<tr>
+						<td colspan="5" class="text-center text-muted py-4">No students registered yet.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+{% endblock %}
+																																								                        

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Parent Dashboard{% endblock %}
+{% block page_title %}Parent Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>My Children</h2>           
+		<p>{{ students|length }} child(ren) linked to your account</p>
+	</div>
+</div>
+
+{% if students %}
+<div class="row g-4">
+	{% for s in students %}
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-body p-4">
+				<div class="d-flex align-items-center gap-3 mb-4">
+					<div class="stat-icon-navy" style="width:52px;height:52px;border-radius:50%;">
+						<i class="bi bi-person-fill"></i>
+					</div>
+					<div>
+						<h5 class="mb-0 fw-bold">{{ s.first_name }} {{ s.last_name }}</h5>
+						<div style="font-size:.8rem;color:#64748b;">
+							{ s.admission_no }}&nbsp;|&nbsp'{{ s.school_class.name if s.school_class else 'No class' }}
+						</div>
+					</div>
+				</div>
+				<div class="d-grid gap-2">
+					<a href="{{ url_for('parent.results', student_id=s.id) }}" class="btn btn-outline-navy">
+						<i class="bi bi-clipboard-data me-2"></i>View Results
+					</a>
+					<a href="{{ url_for('parent.attendance', student_id=s.id) }}" class="btn btn-outline-navy">
+						<i class="bi bi-calendar-check me-2"></i>View Attendance
+					</a>
+					<a href="{{ url_for('parent.fees', student_id=s.id) }}" class="btn btn-outline-navy">
+						<i class="bi bi-cash me-2"></i>View Fee Balance
+					</a>
+					<a href="{{ url_for('student.report_card_pdf', student_id=s.id, term_id=1) }}" class="btn btn-amber" target="_blank">
+						<i class="bi bi-file-pdf me-2"></i>Download Report Card
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% else %}
+<div class="card p-5 text-center">
+	<i class="bi bi-people" style="font-size:2.5rem;color:#cbd5e1;"></i>
+	<p class="text-muted mt-3 mb-0">No children linked to your account yet. Please contact the school admin.</p>
+</div>
+{% endif %}
+{% endblock %}

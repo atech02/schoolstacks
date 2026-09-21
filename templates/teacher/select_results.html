@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Enter results{% endblock %}
+{% block page_title %}Enter Results{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Enter Results</h2>  
+		<p>Select class, subject and exam to enter marks</p>
+	</div>
+</div>
+
+<div class="card" style="max-width:500px;">
+	<div class="card-header">
+		<i class="bi bi-clipboard-data me-2"></i>Select Parameters
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<!-- Class Selection -->
+			<div class="mb-3">
+				<label class="form-label">Class<label>
+						<label class="label">Class</label>
+						<select name="class_id" class="form-select" required>
+							<option value="">Select class...</option>    
+							{% for c in classes %}
+							<option value="{{ c.id }}">{{ c.name }}</option>
+							{% endfor %}
+						</select>
+			</div>
+
+			<!-- Subject Selection -->
+			<div class="mb-3">
+				<label class="form-label">Subject</label>
+				<select name="subject_id" class="form-select" required>
+					<option value="">Select subject...</option>
+					{% for s in subjects %}
+					<option value="{{ s.id }}">{{ s.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+			<!-- Exam Selection -->
+			<div class="mb-4">
+				<label class="form-label">Exam</label>
+				<select name="exam_id" class="form-select" required>
+					<option value="">Select exam...</option>
+					{% for e in exams %}
+					<option value="{{ e.id }}">{{ e.name }} — {{ e.term.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<button type="submit" class="btn btn-primary w-100">				        
+				<i class="bi bi-arrow-right me-2"></i>Continue to Marks Entry
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

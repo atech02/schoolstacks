@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Child Results{% endblock %}
+{% block page_title %}Child Results{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Academic Results</h2>
+	</div>
+	<a href="{{ url_for('parent.dashboard') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back
+	</a>
+</div>
+
+<div class="card">
+	<div class="card-body p-0">
+		<table class="table mb-0">
+			<thead>
+				<tr>
+					<th>Subject</th>
+					<th>Exam</th>
+					<th>Marks</th>
+					<th>Grade</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for r in results %}
+				<tr>
+					<td>{{ r.subject.name if r.subject else '—' }}</td>
+					<td>{{ r.exam.name if r.exam else '—' }}</td>
+					<td>{{ r.marks }}</td>
+					<td>
+						<span class="badge-grade">
+							{% set g = r.marks %}
+							{% if g >= 80 %}A{% elif g >= 70 %}B{% elif g >= 60 %}C{% elif g >= 50 %}D{% else %}F{% endif %}
+						</span>
+					</td>
+				</tr>
+				{% else %}
+				<tr>
+					<td colspan="4" class="text-center text-muted py-4">No results available</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

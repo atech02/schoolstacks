@@ -1,0 +1,93 @@
+<!-- mark_attendance.html -->
+{% extends "base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+{% block page_title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Mark Attendance</h2>
+		<p>{{ students|length }} students in this class</p>
+	</div>
+	<a href="{{ url_for('teacher.attendance') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Change Class
+	</a>
+</div>
+
+<div class="card">
+	<div class="card-header">
+		<i class="bi bi-calendar-check me-2"></i>Attendance Sheet
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<div class="mb-4" style="max-width:240px;">
+				<label class="form-label">Date</label>
+				<input type="date" name="date" class="form-control" required value="{{ today.strftime('%Y-%m-%d') if today else '' }}">
+			</div>
+
+			<div class="table-responsive">
+				<table class="table">
+					<thead>
+						<tr>
+							<th>#</th> 
+							<th>Admission No</th>
+							<th>Student Name</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for student in students %}
+						<tr>
+							<td>{{ loop.index }}</td>
+							<td>
+								<span class="badge bg-light text-dark">{{ student.admission_no }}</span>
+							</td>
+							<td> 
+								<strong>{{ student.first_name }} {{ student.last_name }}</strong>
+							</td>
+							<td>
+								<div class="d-flex gap-3">
+									<div class="form-check"> 
+										<input class="form-check-input" type="radio" name="status_{{ student.id }}" value="Present" id="p_{{ student.id }}" required>
+										<label class="form-check-label text-success fw-bold" for="p_{{ student.id }}">Present</label>
+									</div>
+									<div class="form-check">
+										<input class="form-check-input" type="radio" name="status_{{ student.id }}" value="Absent" id="a_{{ student.id }}">
+										<label class="form-check-label text-danger fw-bold" for="a_{{ student.id }}">Absent</label>
+									</div>
+								</div>
+							</td>
+						</tr>
+						{% else %}
+						<tr>
+							<td colspan="4" class="text-center text-muted py-4">No students in this class.</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+
+			{% if students %}
+			<div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+				<button type="button" class="btn btn-outline-navy btn-sm" onclick="markAll('Present')">
+					<i class="bi bi-check-all me-1"></i>Mark All Present
+				</button>
+				<button type="submit" class="btn btn-primary px-5">
+					<i class="bi bi-save me-2"></i>Save Attendance
+				</button>
+			</div>
+			{% endif %}
+		</form>
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+	<script>
+		function markAll(status) { 
+			document.querySelectorAll(`input[value="${status}"]`).forEach(r => r.checked = true);
+		}
+	</script>
+{% endblock %}

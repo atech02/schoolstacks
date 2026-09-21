@@ -1,75 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>{% block title %}EduManage{% endblock %} \u2014 School Management</title>
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-		<href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-		<link href="https://cdn.jsdeliver.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-		<style
-			:root {
-			--navy: #0f1f3d;
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>{% block title %}EduManage{% endblock %} — School Management</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com"/>
+		<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/>
+		<style>
+		:root {
+			--navy: #1e293b;
 			--navy2: #162847;
 			--amber: #f59e0b;
-			--amber2: #fbbf24;
+			--amber2: #d97706;
 			--slate: #64748b;
 			--light: #f8fafc;
 			--border: #e2e8f0;
 			--success: #10b981;
 			--danger: #ef4444;
 			--info: #3b82f6;
-			}
-			
-			*, *::before, *::after { box-sizing: border-box; }
-			body {
+		}
+		*, *::before, *::after { box-sizing: border-box; }
+ 		body {
 			font-family: 'DM Sans', sans-serif;
-			background: var(--light);
-			color: #1e293b;
-			min-height: 100vh;
-			display: flex;
-			}
-			
-			\u2500\u2500 Sidebar \u2500\u2500
-			#sidebar {
+	   		background: var(--light);
+	    		color: #1e293b;
+	     		min-height: 100vh;
+	      		display: flex;
+		}
+		
+		/* ── Sidebar ── */
+		#sidebar {
 			width: 260px;
 			min-height: 100vh;
 			background: var(--navy);
 			display: flex;
 			flex-direction: column;
 			position: fixed;
-			top: 0;
-			left: 0;
+			top: 0; left: 0;
 			z-index: 100;
-			transition: transform .3s ease;
-			}
-			.sidebar-brand {
+			trasition: transform .3s ease;
+		}
+		.sidebar-brand {
+			padding: 28px 24px 20px;
+			border-bottom: 1px solid rgba(255,255,255,.08);
+		}
+		.sidebar-brand h1 {
 			font-family: 'Playfair Display', serif;
 			font-size: 1.4rem;
 			color: #fff;
 			margin: 0;
 			letter-spacing: -.3px;
-			}
-			.sidebar-brand span { color: var(--amber),}
-			.sidebar-role {
+		}
+		.sidebar-brand span { color: var(--amber); }
+		.sidebar-role {
 			font-size: .7rem;
 			color: rgba(255,255,255,.4);
 			text-transform: uppercase;
 			letter-spacing: 1.5px;
-			margin-top: 4px; 
-			}
-			.sidebar-nav { padding: 16px 12px; flex: 1 }
-			.nav-section {
-			font-size: .65rem; 
+			margin-top: 4px;
+		}
+		.sidebar-nav { padding: 16px 12px; flex: 1; }
+		.nav-section {
+			font-size: .65rem;
 			color: rgba(255,255,255,.3);
 			text-transform: uppercase;
-			letter-spacing: 1.4px;
+			letter-spacing: 1.5px;
 			padding: 16px 12px 6px;
-			}
-			.sidenar-nav .nav-link {
+		}
+		.sidebar-nav .nav-link {
 			display: flex;
 			align-items: center;
+			gap: 10px;
 			color: rgba(255,255,255,.65);
 			padding: 10px 12px;
 			border-radius: 8px;
@@ -77,32 +80,32 @@
 			font-weight: 500;
 			transition: all .2s;
 			margin-bottom: 2px;
-			}
-			.sidebar-nav .nav-link:hover,
-			.sidebar-nav .nav-link.active {
+		}
+		.sidebar-nav .nav-link:hover,
+		.sidebar-nav .nav-link.active {
 			background: rgba(245,158,11,.12);
 			color: var(--amber2);
-			}
-			.sidebar-nav .nav-link i { font-size: 1rem; width: 20px; text-align: center; }
-			.sidebar-footer {
-			padding: 16px; 
+		}
+		.sidebar-nav .nav-link i { font-size: 1rem; width: 20px; txt-align: center; }
+		.sidebar-footer {
+			padding: 16px;
 			border-top: 1px solid rgba(255,255,255,.08);
-			}
-			.sidebar-footer .nav-link {
+		}
+		.sidebar-footer .nav-link {
 			color: rgba(255,255,255,.5);
 			font-size: .8rem;
-			}
-			.sidebar-footer nav-link:hover { color: #fff; }
+		}
+		.sidebar-footer .nav-link:hover { color: #fff; }
 
-			\u2500\u2500 Main Content \u2500\u2500
-			#main {
+		/* ── Main content ── */
+		#main {
 			margin-left: 260px;
 			flex: 1;
 			display: flex;
 			flex-direction: column;
 			min-height: 100vh;
-			}
-			.topbar {
+		}
+		.topbar {
 			background: #fff;
 			border-bottom: 1px solid var(--border);
 			padding: 0 28px;
@@ -110,39 +113,37 @@
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			position: sticky:
+		        position: sticky;
 			top: 0;
-			z-index: 50; 
-			}
-			.topbar-title {
+			z-index: 50;
+		}
+		.topbar-title {
 			font-family: 'Playfair Display', serif;
-			font-size: 1.2rem; 
+			font-size: 1.2rem;
 			font-weight: 700;
 			color: var(--navy);
-			}
-			.topbar-right { display: flex; align-items: center; gap: 16px; }
-			.notif-btn {
+		}
+		.topbar-right { display: flex; align-items: center; gap: 16px; }
+		.notif-btn {
 			position: relative;
 			background: none;
 			border: none;
 			color: var(--slate);
 			font-size: 1.2rem;
 			cursor: pointer;
-			padding: 6px;
 			border-radius: 8px;
-			transition: background .2s; 
-			}
-			.notif-btn:hover { background: var(--light); }
-			.notif-badge {
-			position: adsolute;
+			transition: background .2s;
+		}
+		.notif-btn:hover { background: var(-light); }
+		.notif-badge {
+			position: absolute;
 			top: 2px;
-			right: 2px
-			width: 8px;
-			height: 8px;
+			right: 2px;
+			width: 8px; height: 8px;
 			background: var(--danger);
 			border-radius: 50%;
-			}
-			.user-chip {
+		}
+		.user-chip {
 			display: flex;
 			align-items: center;
 			gap: 8px;
@@ -153,75 +154,69 @@
 			font-size: .8rem;
 			font-weight: 600;
 			color: var(--navy);
-			}
-			.user-avatar {
-			width: 30px; 
-			height: 30px;
+		}
+		.user-avatar {
+			width: 30px; height: 30px;
 			border-radius: 50%;
 			background: var(--navy);
 			color: var(--amber);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-size: .75rem;
-			font-weight: 700;
-			}
-			.content-area { padding: 28px; flex: 1; }
+			display: flex; align-items: center; justify-content: center;
+			font-size: .75rem; font-weight: 700;
+		}
+		.content-area { padding: 28px; flex: 1; }
 
-			\u2500\u2500 Cards \u2500\u2500
-			.card {
-			border: 1px solid var(--border); 
+		/* ── Cards ── */
+		.card {
+			border: 1px solid var(--border);
 			border-radius: 14px;
-			box-shadow: 0 1px 3px rgba(0,0,0,.04)
-			}
-			.card-header {
+			box-shadow: 0 1px 3px rgba(0,0,0,.04);
+		}
+		.card-header {
 			background: #fff;
 			border-bottom: 1px solid var(--border);
 			border-radius: 14px 14px 0 0 !important;
 			padding: 16px 20px;
 			font-weight: 600;
 			font-size: .95rem;
-			}
-			.stat-card {
+		}
+		.stat-card {
 			background: #fff;
-			border: 1px solid var(--border);
+			border-bottom: 1px solid var(--border);
 			border-radius: 14px;
 			padding: 20px;
 			display: flex;
 			align-items: center;
 			gap: 16px;
-			}
-			.stat-icon {
-			width: 52px;
-			height: 52px;
+		}
+		.stat-icon {
+			width: 52px; height: 52px;
 			border-radius: 12px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
+			display: flex; align-items:  center; justify-content: center;
 			font-size: 1.4rem;
-			}
-			.stat-icon.navy { background: rgba(15,31,61,.08); color: var(--navy); }
-			.stat-icon.amber { background: rgba(245,158,11,.12); color: var(--amber); }
-			.stat-icon.green { background: rgba(16,185,129,.1); color: var(--success); }
-			.stat-icon.blue { background: rgba(59,130,246,.1); color: var(--info); }
-			.stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
-			.stat-label { font-size: .8rem; color: var(--slate); margin-top: 2px; }
-			
-			\u2500\u2500 Forms \u2500\u2500
-			.form-control, .form-select {
+		}
+		.stat-icon.navy { background: rgba(15,31,61,.08); color: var(--navy); }
+		.stat-icon.amber { background: rgba(245,158,11,.12); color: var(--amber); }
+		.stat-icon.green { background: rgba(16,185,129,.1); color: var(--success); 
+		.stat-icon.blue { background: rgba(59,130,246,.1); color: var(--info); }
+		.stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+		.stat-label { font-size: .8rem; color: var(--slate); margin-top: 2px; }
+
+		/* ── Forms ── */
+		.form-control, .form-select {
+			border: 1px solid var(--border);
 			border-radius: 8px;
 			padding: 10px 14px;
 			font-family: 'DM Sans', sans-serif;
 			font-size: .875rem;
 			transition: border-color .2s, box-shadow .2s;
-			}
-			.form-control:focus, .form-select:focus {
+		}
+		.form-control:focus, .form-select:focus {
 			border-color: var(--amber);
-			box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+			box-shadow: 0 0 0 3px rgba(245,158, 11,.15);
 			outline: none;
-			}
-			.form-label { font-weight: 600; font-size: .82rem; margin-bottom: 6px; color: #374151; }
-			.btn-primary {
+		}
+		.form-label { font-weight: 600; font-size: .82rem; margin-bottom: 6px; color: #374151; }
+		.btn-primary {
 			background: var(--navy);
 			border: none;
 			border-radius: 8px;
@@ -229,9 +224,9 @@
 			font-weight: 600;
 			font-size: .875rem;
 			transition: background .2s, transform .1s;
-			}
-			.btn-primary:hover { background: var(--navy2); transform: translate(-1px); }
-			.btn-amber {
+		}
+		.btn-primary:hover { background: var(--navy2); transform: translateY(-1px); }
+		.btn-amber {
 			background: var(--amber);
 			color: var(--navy);
 			border: none;
@@ -239,123 +234,217 @@
 			padding: 10px 22px;
 			font-weight: 700;
 			font-size: .875rem;
-			}
-			.btn-amber:hover { background: var(--amber2); color: var(--navy); }
-			.btn-outline-navy {
+		}
+		.btn-amber:hover { background: var(--amber2); color: var(--navy); }
+		.btn-outline-navy {
 			border: 2px solid var(--navy);
 			color: var(--navy);
 			background: transparent;
 			border-radius: 8px;
 			padding: 8px 18px;
 			font-weight: 600;
-			font-size: .875rem; 
-			}
-			.btn-outline-navy:hover { background: var(--navy); color: #fff; }
+			font-size: .875rem;
+		}
+		.btn-outline-navy:hover { background: var(--navy); color: #fff; }
 
-			\u2500\u2500 Tables \u2500\u2500
-			.table { font-size: .875rem; }
-			.table th {
+		/* ── Tables ── */
+		.table { font-size: .875rem; }
+		.table th {
 			font-size: .72rem;
-			text-transform: uppercase;
+			text-transform: uppercaser;
 			letter-spacing: .8px;
 			color: var(--slate);
 			font-weight: 600;
-			backgound: var(--light);
-			border-bottom: 1px solid var(--border);
+			background: var(--light);
+			border-bottom: var(--light);
 			padding: 12px 16px;
-			}
-			.table td { padding: 14px 16px; vertical-align: middle; border-color: var(--border); }
-			.table tbody tr:hover { background: #fafbfc; }
-			
-			\u2500\u2500 Badges \u2500\u2500
-			.badge-present { 
+		}
+		.table td { padding: 14px 16px; vertical-align: middle; border-color: var(--border); }
+		.table tbody tr:hover { background: #fafbfc; }
+
+		/* ── Badges ── */
+		.badge-present { 
 			background: rgba(16,185,129,.1); 
 			color: var(--success); 
-			border-radius: 6px;
-			padding: 3px 10px;
-			font-size: .75rem;
-			font-weight: 600;
-			}
-			.badge-absent {
-			background: rgba(239,68,68,.1);
-			color: var(--danger); 
-			border-radius: 6px;
-			padding: 3px 10px;
-			font-size: .75rem;
-			font-weight: 600;
-			}
-			.badge-grade {
-			background: rgba(15,31,61,.08);
-			color: var(--navy); 
-			border-radius: 6px;
+			border-radius: 6px; 
 			padding: 3px 10px; 
-			font-weight: 700;
-			}
+			font-size: .75rem; 
+			font-weight: 600; 
+		}
+		.badge-absent { 
+			background: rgba(239,68,68,.1); 
+			color: var(--danger); 
+			border-radius: 6px; 
+			padding: 3px 10px; 
+			font-size: .75rem;
+			font-size: 600; 
+		}
+		.badge-grade { 
+			background: rgba(15,31,61,.08); 
+			color: var(--navy); 
+			border-radius: 6px; 
+			padding: 3px 10px; 
+			font-size: .75rem; 
+			font-weight: 700; 
+		}
 
-			\u2500\u2500 Flash \u2500\u2500
-			.alert {
+		/* ── Flash messages ── */
+		.alert {
 			border: none;
 			border-radius: 10px;
 			font-size: .875rem;
 			font-weight: 500;
-			}
-			.alert-success { background: rgba(16,185,129,.1); color: #065f46; }
-			.alert-danger { background: rgba(239,68,68,.1); color: #991b1b; }
-			.alert-warning { background: rgba(245,158,11,.1); color: #991b1b; }
-			.alert-error { background: rgba(239,68,68,.1); color: #991b1b; }
+		}
+		.alert-success { background: rgba(19,185,129,.1); color: #065f46; }
+		.alert-danger { background: rgba(239,68,68,.1); color: #991b1b; }
+		.alert-warning { background: rgba(245,158,11,.1); color: #92400e; }
+		.alert-error { background: rgba(239,68,68,.1); color: #991b1b; }
 
-			\u2500\u2500 Page header \u2500\u2500
-			.page-header {
+		/* ── Page header ── */
+		.page-header {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			margin-bottom: 24px;
-			}
-			.page-header h2 {
+			justify-content: space-betttom: 24px;
+		}
+		.page-header h2 {
 			font-family: 'Playfair Display', serif;
 			font-size: 1.6rem;
 			font-weight: 700;
 			color: var(--navy);
 			margin: 0;
-			}
-			.page-header p { color: var(--slate); margin: 4px 0 0; font-size: .875rem; }
+		}
+		.page-header p { color: var(--slate); margin: 4px 0 0; font-size: .875rem; }
 
-			\u2500\u2500 Mobile toggle \u2500\u2500
-			.sidebar-toggle {
+		/* ── Mobile toggle ── */
+		.sidebar-toggle {
 			display: none;
 			background: none;
 			border: none;
 			font-size: 1.4rem;
 			color: var(--navy);
-			}
-			
-			@media(max-width: 768px)
+		}
+		@media (max-width: 768px) {
 			#sidebar { transform: translateX(-260px); }
 			#sidebar.open { transform: translateX(0); }
 			#main { margin-left: 0; }
 			.sidebar-toggle { display: block; }
-
+		}
 		</style>
 		{% block extra_css %}{% endblock %}
-		<head>
-			<body>
+	</head>
+	<body>
+		{% if current_user.is_authenticated %}
+		<!-- Sidebar -->
+		<nav id="sidebar">
+			<div class="sidebar-brand">
+				<h1>Edu<span>Manage</span></h1>
+				<div class="sidebar-role">{{ current_user.role | title }} Portal</div>
+			</div>
+			
+			<div class="sidebar-nav">
+				{% if current_user.role == 'admin' %}
+				<div class="nav-section">Overview</div>
+				<a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+					<i class="bi bi-grid-1x2"></i> Dashboard
+				</a>
+				<div class="nav-section">Academics</div>
+				<a href="{{ url_for('admin.students_list') }}" class="nav-link"><i class="bi bi-people"></i> Students</a>
+				<a href="{{ url_for('admin.register_student') }}" class="nav-link"><i class="bi bi-person-plus"></i> Register Student</a>
+				<a href="{{ url_for('admin.teachers_list' }}" class="nav-link"><i class="bi bi-person-badge"></i> Teachers</a>
+				<a href="{{ url_for('admin.register_teacher') }}" class="nav-link"><i class="bi bi-person-plus-fill"></i> Register Teacher</a>
+				<a href="{{ url_for('admin.create_class') }}" class="nav-link"><i class="bi bi-building"></i> Classes</a>
+				<a href="{{ url_for('admin.add_subject') }}" class="nav-link"><i class="bi bi-book"></i> Subjects</a>
+				<a href="{{ url_for('admin.create_timetable') }}" class="nav-link"><i class="bi bi-calendar3"></i> Timetable</a>
+				<div class="nav-section">Finance</div>
+				<a href="{{ url_for('admin.set_fees') }}" class="nav-link"><i class="bi bi-cash-stack"></i> Set Fees</a>
+				<div class="nav-section">Admin</div>
+				<a href="{{ url_for('admin.manage_terms') }}" class="nav-link"><i class="bi bi-calendar-range"></i> Terms & Exams</a>
+				<a href="{{ url_for('admin.create_announcement') }}" class="nav-link"><i class="bi bi-megaphone"></i> Announcements</a>
+				<a href="{{ url_for('admin.analytics') }}" class="nav-link"><i class="bi bi-bar-chart-line"></i> Analytics</a>
 
-				{% if current_user.is_authenticated %}
-				<-!--\u2500\u2500 Sidebar \u2500\u2500 --->
-				<nav id="sidebar">
-					<div class="sidebar-brand">
-						<h1>Edu<span>Manage</span></h1>
-						<div class="sidebar-role">{{ current_user.role | title }} Portal</div>
+				{% elif current_user.role == 'teacher' %}
+				<div class="nav-section">Overview</div>
+				<a href="{{ url_for('teacher.dashboard') }}" class="nav-link {% if request.endpoint == teacher.dashboard' %}active{% endif %}">
+					<i class="bi bi-grid-1x2"></i> Dashboard
+				</a>
+				<div class="nav-section">Teaching</div>
+				<div class="{{ url_for('teacher.attendance') }}" class="nav-link"><i class="bi bi-check2-square"></i> Attendance</a>
+				<a href="{{ url_for('teacher.upload_material') }}" class="nav-link"><i class="bi bi-cloud-upload"></i> Upload Materials</a>
+				<a href="{{ url_for('teacher.create_assignment') }}" class="nav-link" class="bi bi-file-earmark-text"></i> Assignments</a>
+				<a href="{{ url_for('teacher.enter_results') }}" class="nav-link"><i class="bi bi-clipboard-data"></i> Enter Results</a>
+
+				{% elif current_user.role == 'student' %}
+				<div class="nav-section">Overview</div>
+				<a href="{{ url_for('student.dashboard') }}" class="nav-link {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+					<i class="bi bi-grid-1x2"></i> Dashboard
+				</a>
+				<div class="nav-section">My School</div> 
+				<a href="{{ url_for('student.assignments') }}" class="nav-link"><i class="bi bi-file-earmark-text"></i> Assignments</a>
+				<a href="{{ url_for('student.materials') }}" class="nav-link"><i class="bi bi-folder2-open"></i> Materials</a>
+				<a href="{{ url_for('student.fees') }}" class="nav-link"><i class="bi bi-cash"></i> Fees</a>
+				<a href="{{ url_for('student.announcements') }}" class="nav-link"><i class="bi bi-megaphone"></i> Announcements</a>
+				<a href="{{ url_for('student.notifications') }}" class="nav-link"><i class="bi bi-bell"></i> Notifications</a>
+
+				{% elif current_user.role == 'parent' %}
+				<div class="nav-section">Overview</div>
+				<a href="{{ url_for('parent.dashboard') }}" class="nav-link {% if request.endpoint == 'parent.dashboard' %}active{% endif %}">
+					<i class="bi bi-grid-1x2"></i> Dashboard
+				</a>
+				<div class="nav-section">My Children</div>
+				<a href="{{ url_for('parent.announcement') }}" class="nav-link"><i class="bi bi-megaphone"></i> Announcements</a>
+				<a href="{{ url_for('parent.notifications') }}" class="nav-link"><i class="bi bi-bell"></i> Notifications</a>
+				{% endif %}
+				</div>
+
+				<div class="sidebar-footer">
+					<a href="{{ url_for('auth.change_password') }}" class="nav-link"><i class="bi bi-key"></i> Change Password</a>
+					<a href="{{ url_for('auth.logout') }}" class="nav-link"><i class="bi bi-box-arrow-left"></i> Logout</a>
+				</div>
+		</nav>
+
+		<!-- ── Main ── -->
+		<div id="main">
+			<div class="topbar">
+				<div class="d-flex align-items-center gap-3">
+					<button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+						<i class="bi bi-list"></i>
+					</button>
+					<span class="topbar-title">{% block page_title %}Dashboard{% endblock %}</span>
+				</div>
+				<div class="topbar-right">
+					<button class="notif-btn" onclick="window.location='{% if current_user.role == 'student' %}{{ url_for('student.notifications') }}{% elif current_user.role == 'parent' %}{{ url_for('parent.notifications') }}{% else %}{{ url_for('admin.get_notifications') }}{% endif %}'">
+						<i class="bi bi-bell"></i>
+						<span class="notif-badge"></span>
+					</button>
+					<div class="user-chip">
+						<div class="user-avatar">{{ current_user.username[0] | upper }}</div>
+						{{ current_user.username }}
 					</div>
+				</div>
+			</div>
 
-					<div class="sidebar-nav"> 
-						{% if current_user.role == 'admin' %}
-						<div class"nav-secction">Overview</div>
-						<a href="{{ url_for('admin.dashboard') }} 
-							 class="nav-link {% if request.endpoint == 'admin.dashboard' %}
-							 active{% endif %}"><i class="bi bi-grid-1x2"></i> Dashboard
-						</a>
-						<div class
+			<div class="content-area">
+				{% with messages = get_flashed_messages(with_categories=true) %}
+				{% if messages %}
+				{% for category, message in messages %}
+				<div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+					<i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"</i>
+					{{ message }}
+					<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+				</div>
+				{% endfor %}
+				{% endif %}
+				{% endwith %}
 
+				{% block content %}{% endblock %}
+			</div>
+		</div>
 
+		{% else %}
+		<div style="width:100%">{% block auth_content %}{% endblock %}</div>
+		{% endif %}
 
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+		{% block extra_js %}{% endblock %}
+	</body>
+</html>

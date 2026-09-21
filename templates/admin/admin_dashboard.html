@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Admin Dashboard</h2>
+		<p>Overview of your school</p>
+	</div>
+</div>
+
+<div class="row g-3 mb-4">
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon navy"><i class="bi bi-people-fill"></i></div>
+			<div>
+				<div class="stat-value">{{ total_students }}</div>
+				<div class="stat-label">Total Students</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon amber"><i class="bi bi-person-badge-fill"></i></div>
+			<div>
+				<div class="stat-value">{{ total_teachers }}</div>
+				<div class="stat-label">Total Teachers</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon green"><i class="bi bi-building"></i></div>
+			<div>
+				<div class="stat-value">{{ total_classes }}</div>
+				<div class="stat-label">Total Classes</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row g-3">
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">Quick Actions</div>
+			<div class="card-body p-3">
+				<div class="d-grid gap-2">
+					<a href="{{ url_for(admin.register_student') }}" class="btn btn-primary"><i class="bi bi-person-plus me-2"></i>Register New Student</a>
+					<a href="{{ url_for('admin.register_teacher') }}" class="btn btn-outline-navy"><i class="bi bi-person-plus-fill me-2"></i>Register New Teacher</a>
+					<a href="{{ url_for('admin.create_class') }}" class="btn btn-outline-navy"><i class="bi bi-building me-2"></i>Create Class</a>
+					<a href="{{ url_for('admin.create_announcement') }}" class="btn btn-outline-navy"><i class="bi bi-megaphone me-2"></i>Post Announcement</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">Management</div>
+			<div class="card-body p-3">
+				<div class="d-grid gap-2">
+					<a href="{{ url_for('admin.manage_terms') }}" class="btn btn-outline-navy"><i class="bi bi-calendar-range me-2"></i>Manage Terms & Exams</a>
+					<a href="{{ url_for('admin.set_fees') }}" class="btn btn-outline-navy"><i class="bi bi-cash-stack me-2"></i>Set Fee Structures</a> 
+					<a href="{{ url_for('admin.create_timetable') }}" class="btn btn-outline-navy"><i class="bi bi-calendar3 me-2"></i>Create Timetable</a>
+					<a href="{{ url_for('admin.analytics') }}" class="btn btn-outline-navy"><i class="bi bi-bar-chart me-2"></i>View Analytics</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

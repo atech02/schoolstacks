@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Announcements{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Announcements</h2>
+	</div>
+</div>
+
+<div class="d-flex flex-column gap-3">
+	{% for a in announcements.items %}
+	  <div class="card">
+		  <div class="card-body p-4">
+			  <div class="d-flex justify-content-between align-items-start mb-2">
+				  <h6 class="fw-bold mb-0" style="font-size:.95rem;">{{ a.title }}</h6>
+				  <span style="font-size:.72rem;color:#94a3b8;">{{ a.created_at.strftime('%d %b %Y') if a.created_at else '' }}</span>       
+			  </div>
+
+			  {% if a.school_class %}
+			  <span style="font-size:.72rem;background:rgba(245,158,11,.1);color:#92400e;border-radius:4px;padding:2px 8px;">
+				  {{ a.school_class.name }}
+			  </span>
+			  {% else %}
+			  <span style="font-size:.72rem;background:rgba(15,31,61,.08);color:var(--navy);border-radius:4px;padding:2px 8px;">All Classes</span>
+			  {% endif %}
+			  <p style="font-size:.875rem;color:#475569;margin-top:10px;margin-bottom:0;">{{ a.message }}</p>
+		  </div>  
+	  </div>
+	  {% else %}
+	  <div class="card p-5 text-center">
+		  <i class="bi bi-megaphone" style="font-size:2.5rem;color:#cbd5e1;"></i>
+		  <p class="text-muted mt-3 mb-0">No announcements at the moment.</p>
+	  </div>
+	  {% endfor %}
+</div>
+
+{% if announcements.pages > 1 %}
+<nav class="mt-4">
+	<ul class="pagination justify-content-center">
+		{% for p in announcements.iter_pages() %}
+		{% if p %}
+		<li class="page-item {% if p == announcements.page %}active{% endif %}">
+			<a class="page-link" href="?page={{ p }}">{{ p }}</a>
+		</li>
+		{% endif %}
+	{% endfor %}
+	</ul>
+</nav>
+{% endif %}
+{% endblock %}

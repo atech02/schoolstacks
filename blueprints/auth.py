@@ -22,6 +22,8 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("auth.index"))
 
+    school = getattr(g, "school", None)
+
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
@@ -31,9 +33,20 @@ def login():
             flash("All fields are required", "danger")
             return redirect(url_for("auth.login"))
 
-        user = User.query.filter_by(username=username).first()
+        if school:
+            user = User.query.filter_by(
+                    school_id=school.id, username=username
+                    ).first()
+        else:
+            user = User.query.filter_by(
+                    username=username, role="superadmin"
+                    ).first()
 
         if user and check_password_hash(user.password_hash, password):
+            if not user.is_verified and user.role == "admin":
+                flash("Please verify your email before logging in.", "warning")
+                return redirect(url_for("auth.login"))
+
             login_user(user)
             role_redirects = {
                     "admin":   "admin.dashboard",
@@ -46,7 +59,7 @@ def login():
         else:
             flash("Invalid username or password", "danger")
 
-    return render_template("login.html")
+    return render_template("login.html", school=school)
 
 
 @auth.route("/logout")

@@ -1,0 +1,19 @@
+#Existing dependencies
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-Limiter==3.7.0
+Flask-Mail==0.10.0
+psycopg2-binary==2.9.9
+Werkzeug==3.0.3
+WeasyPrint==62.3
+python-dotenv==1.0.1
+APScheduler==3.10.4
+stripe==9.9.0
+itsdangerous==2.2.0
+
+# New: REST API layer
+Flask-JWT-Extended==4.6.0   # JWT tokens for mobile auth
+flask-cors==4.0.0           # Allow React Native to call Flask
+marshmallow==3.21.3         # Serialization / validation

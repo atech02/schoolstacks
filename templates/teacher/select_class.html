@@ -1,0 +1,38 @@
+<!-- select_class.html -->
+{% extends "base.html" %}
+{% block title %}Select Class{% endblock %}
+{% block page_title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Mark Attendance</h2>
+		<p>Select a class to mark attendance</p>
+	</div>
+</div>
+
+<div class="card" style="max-width:420px;">
+	<div class="card-header">
+		<i class="bi bi-check2-square me-2"></i>Select Class
+	</div>
+	<div class="card-body p-4">
+		<form method="POST" action="{{ url_for('teacher.attendance') }}">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">     
+			
+			<div class="mb-4">
+				<label class="form-label">Class</label>
+				<select name="class_id" class="form-select" required>
+					<option value="">Choose a class...</option>
+					{% for c in classes %}
+					<option value="{{ c.id }}">{{ c.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<button type="submit" class="btn btn-primary w-100">
+				<i class="bi bi-arrow-right me-2"></i>Proceed to Attendance
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

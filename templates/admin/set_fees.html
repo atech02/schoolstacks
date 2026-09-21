@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Set Fees{% endblock %}
+{% block page_title %}Fee Structure{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Set Fee Structure</h2>   
+		<p>Configure fees per class per term</p>
+	</div>
+</div>
+
+<div class="card" style="max-width:500px;">
+	<div class="card-header">
+		      <i class="bi bi-cash-stack me-2"></i>Fee Configuration
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<!-- Class Select -->
+			<div class="mb-3">
+				<label class=form-label">Class</label>
+				<select name="class_id" class="form-select" required>      
+					<option value="">Select class...</option>
+					{% for c in classes %}
+					<option value="{{ c.id }}">{{ c.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<!-- Term Select -->
+			<div class="mb-3">
+				<label class="form-label">Term</label>
+				<select name="term_id" class="form-select" required>
+					<option value="">Select term...</option>     
+					{% for t in terms %}
+					<option value="{{ t.id }}">{{ t.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<!-- Amount Input -->
+			<div class="mb-4">
+				<label class="form-label">Amount (K)</label>
+				<input 
+				       type="number" 
+				       name="amount" 
+				       class="form-control" 
+				       step="0.01" 
+				       placeholder="0.00" 
+				       required
+				       />
+			</div>
+
+			<button type="submit" class="btn btn-primary w-100">
+				<i class="bi bi-check-circle me-2"></i>Set Fees
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Fee Balance{% endblock %}
+{% block page_title %}My Fees{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Fee Balance</h2>
+		<p>Outstanding balance per term</p>
+	</div>
+</div>
+
+<div class="row g-3">
+	{% for item in data %}
+	<div class="col-md-4">
+		<div class="card p-4 text-center">
+			<div class="stat-icon {% if item.balance <= 0 %}green{% else %}amber{% endif %} mx-auto mb-3" style="width:52px;height:52px;">
+				<i class="bi bi-{% if item.balance <= 0 %}check-circle{% else %}cash{% endif %}"></i>
+			</div>
+			<h6 class="fw-bold">{{ item.term }}</h6>
+			<div style="font-size:1.6rem;font-weight:700;color:{% if item.balance <= 0 %}var(--success){% else %}var(--danger){% endif %};">
+				K{{ "%.2f"|format(item.balance) }}
+			</div>
+			<div style="font-size:.75rem;color:#64748b;margin-top:4px;">
+				{% if item.balance <= 0 %}Fully Paid{% else %}Outstanding{% endif %}
+			</div>
+		</div>
+	</div>
+	{% else %}
+	<div class="col-12 text-center text-muted py-5">No fee data available.</div>
+	{% endfor %}
+</div>
+{% endblock %}
+

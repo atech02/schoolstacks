@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Create Timetable{% endblock %}
+{% block page_title %}Timetable{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Create Timetable</h2>
+		<p>Assign subjects and teachers to time slots </p>
+	</div>
+</div>
+
+<div class="card" style="max-width:600px;">
+	<div class="card-header">
+		<i class="bi bi-calendar3 me-2"></i>Timetable Entry
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<div class="row g-3">
+				<!-- Class Select -->
+				<div class="col-md-6">
+					<label class="form-label">Class</label>
+					<select name="class_id" class="form-select" required>
+						<option value="">Select...</option>
+						{% for c in classes %}
+						<option value="{{ c.id }}">{{ c.name }}</option>
+						{% endfor %}
+					</select>
+				</div>
+
+				<!-- Subject Select -->
+				<div class="col-md-6">
+					<label class="form-label">Subject</label>
+					<select name="subject_id" class="form-select" required>
+						<option value="">Select...</option>
+						{% s in subjects %}
+						<option value="{{ s.id }}">{{ s.name }}</option>
+						{% endfor %}
+					</select> 
+				</div>
+
+				<!-- Teacher Select -->
+				<div class="col-12">
+					<label class="form-label">Teacher</label>
+					<select name="teacher_id" class="form-select" required>
+						<option value="">Select...</option>
+						{% for t in teachers %}
+						<option value="{{ t.id }}">{{ t.first_name }} {{ t.last_name }}</option>
+						{% endfor %}
+					</select>
+				</div>
+
+				<!-- Day Select -->
+				<div class="col-12">
+					<label class="form-label">Day</label>
+					<select name="day" class="form-select" required>
+						<option value="">Select...</option>
+						{% for d in days %}          
+						<option value="{{ d }}">{{ d }}</option>
+						{% endfor %}
+					</select>   
+				</div>
+
+				<!-- Start Time Input -->
+				<div class="col-md-6">
+					<label class="form-label">Start Time</label>
+					<input type="time" name="start_time" class="form-control" required/>
+				</div>
+
+				<!-- End Time Input -->
+				<div class="col-md-6">
+					<label class="form-label">End Time</label>
+					<input type="time" name="end_time" class="form-control" required/>
+				</div>
+
+				<!-- Submit Button -->
+				<div class="col-12">
+					<button type="submit" class="btn btn-primary w-100">
+						<i class="bi bi-plus-circle me-2"></i>Add Entry
+					</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+{% endblock %}

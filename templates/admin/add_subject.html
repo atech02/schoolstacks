@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Subjects{% endblock %}
+{% block page_title %}Subjects{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Manage Subjects</h2>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-md-5">
+		<div class="card">
+			<div class="card-header">
+				<i class="bi bi-plus-circle me-2"></i>Add Subject
+			</div>
+			<div class="card-body p-4">
+				<form method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+					<div class="mb-3">
+						<label class="form-label">Subject Name</label>
+						<input type="text" name="name" class="form-control" placeholder="e.g. Mathematics" required/>
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label">Subject Code</label>
+						<input type="text" name="code" class="form-control" placeholder="e.g. MATH101" required/>
+					</div>
+														                
+					<button type="submit" class="btn btn-primary w-100">Add Subject</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-md-7">
+		<div class="card">
+			<div class="card-header">All Subjects</div>
+			<div class="card-body p-0">
+				<table class="table mb-0"> 
+					<thead>
+						<tr>
+							<th>Code</th>
+							<th>Name</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for s in subjects %}
+						<tr>
+							<td><span class="badge-grade">{{ s.code }}</span></td>
+							<td>{{ s.name }}</td>
+						</tr>
+						{% else %}
+						<tr>
+							<td colspan="2" class="text-center text-muted py-4">No subjects added yet.</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
