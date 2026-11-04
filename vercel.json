@@ -1,8 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --prefix frontend",
-  "buildCommand": "npm run build --prefix frontend",
-  "outputDirectory": "frontend/dist",
+  "services": {
+    "app": {
+      "root": ".",
+      "framework": "flask"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite",
+      "rewrites": [
+        { "source": "/(.*)", "destination": "/index.html" }
+      ]
+    }
+  },
   "headers": [
     {
       "source": "/sw.js",
@@ -19,9 +29,21 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.py"
-    }
+    { "source": "/api/(.*)", "destination": { "service": "app" } },
+    { "source": "/billing/(.*)", "destination": { "service": "app" } },
+    { "source": "/login", "destination": { "service": "app" } },
+    { "source": "/logout", "destination": { "service": "app" } },
+    { "source": "/auth/(.*)", "destination": { "service": "app" } },
+    { "source": "/admin/(.*)", "destination": { "service": "app" } },
+    { "source": "/teacher/(.*)", "destination": { "service": "app" } },
+    { "source": "/student/(.*)", "destination": { "service": "app" } },
+    { "source": "/parent/(.*)", "destination": { "service": "app" } },
+    { "source": "/superadmin/(.*)", "destination": { "service": "app" } },
+    { "source": "/onboarding/(.*)", "destination": { "service": "app" } },
+    { "source": "/static/(.*)", "destination": { "service": "app" } },
+    { "source": "/health", "destination": { "service": "app" } },
+    { "source": "/sw.js", "destination": { "service": "app" } },
+    { "source": "/manifest.json", "destination": { "service": "app" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
   ]
 }

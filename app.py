@@ -176,7 +176,10 @@ def create_app(config_class=Config):
         app.config["ASSIGNMENT_UPLOAD"],
         app.config["ANNOUNCEMENT_UPLOAD"],
     ]:
-        os.makedirs(folder, exist_ok=True)
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            pass
 
     # ── DB init, non-destructive column migrations + superadmin ───
     with app.app_context():
