@@ -10,12 +10,19 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 def _get_database_url():
     db_url = os.environ.get("DATABASE_URL", "").strip()
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
     if not db_url:
         instance_dir = os.path.join(BASE_DIR, "instance")
         os.makedirs(instance_dir, exist_ok=True)
-        db_url = f"sqlite:///{os.path.join(instance_dir, 'edumanage.db')}"
+        return f"sqlite:///{os.path.join(instance_dir, 'edumanage.db')}"
+
+    # Normalize PostgreSQL dialect schemes to postgresql+psycopg:// for SQLAlchemy 2.x
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgresql+psycopg2://"):
+        db_url = db_url.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
     return db_url
 
 

@@ -75,11 +75,12 @@ def import_to_postgres(pg_database_url: str, dump_data: dict) -> bool:
     Does not drop or truncate existing tables.
     """
     from sqlalchemy import create_engine, text
-    import psycopg2
 
-    # Clean URL format
+    # Clean and normalize URL format for SQLAlchemy psycopg driver
     if pg_database_url.startswith("postgres://"):
-        pg_database_url = pg_database_url.replace("postgres://", "postgresql://", 1)
+        pg_database_url = pg_database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif pg_database_url.startswith("postgresql://") and not pg_database_url.startswith("postgresql+"):
+        pg_database_url = pg_database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
     print(f"[MIGRATE] Connecting to target PostgreSQL...")
     engine = create_engine(pg_database_url, pool_pre_ping=True)
