@@ -28,6 +28,7 @@ def _extract_subdomain():
         or host.endswith(".web.app")
         or host.endswith(".firebaseapp.com")
         or host.endswith(".run.app")
+        or host.endswith(".vercel.app")
     ):
         return None
 

@@ -48,7 +48,12 @@ class School(db.Model):
     suspension_reason = db.Column(db.Text)
 
     def get_url(self, protocol="https", base_domain="yoursaas.com"):
-        if base_domain in ("localhost", "127.0.0.1") or base_domain.endswith(".web.app") or base_domain.endswith(".firebaseapp.com"):
+        if (
+            base_domain in ("localhost", "127.0.0.1")
+            or base_domain.endswith(".web.app")
+            or base_domain.endswith(".firebaseapp.com")
+            or base_domain.endswith(".vercel.app")
+        ):
             return f"{protocol}://{base_domain}/s/{self.subdomain}"
         return f"{protocol}://{self.subdomain}.{base_domain}"
 
