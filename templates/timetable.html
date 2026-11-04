@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Class Timetable{% endblock %}
+{% block page_title %}Class Timetable{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Timetable {% if school_class %}— {{ school_class.name }}{% endif %}</h2>
+		<p>Weekly class schedule</p>
+	</div>
+	<a href="{{ url_for('admin.create_class') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back to Classes
+	</a>
+</div>
+
+<div class="card">
+	<div class="card-body p-0">
+		<div class="table-responsive">
+			<table class="table mb-0">
+				<thead>
+					<tr>
+						<th>Day</th>
+						<th>Time</th>
+						<th>Subject</th>
+						<th>Teacher</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for entry in timetable %}
+					<tr>
+						<td><strong>{{ entry.day }}</strong></td>
+						<td>{{ entry.start_time }} – {{ entry.end_time }}</td>
+						<td>{{ entry.subject.name if entry.subject else '—' }}</td>
+						<td>{{ (entry.teacher.first_name ~ ' ' ~ entry.teacher.last_name) if entry.teacher else '—' }}</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="4" class="text-center text-muted py-4">No timetable entries scheduled for this class yet.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+{% endblock %}

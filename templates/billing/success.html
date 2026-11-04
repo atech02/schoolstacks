@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Payment Confirmed{% endblock %}
+{% block page_title %}Payment Confirmed{% endblock %}
+{% block content %}
+<div class="card p-5 text-center mx-auto" style="max-width:480px;">
+	<div class="stat-icon green mx-auto mb-3" style="width:64px;height:64px;border-radius:50%;font-size:2rem;">
+		<i class="bi bi-check-circle-fill"></i>
+	</div>
+	<h3 class="fw-bold">Payment Processed</h3>
+	<p class="text-muted small">Thank you! Your payment status has been updated.</p>
+	<a href="{{ url_for('billing.plans') }}" class="btn btn-primary mt-2">Return to Billing</a>
+</div>
+{% endblock %}

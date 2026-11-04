@@ -1,0 +1,60 @@
+<!-- submissions.html -->
+{% extends "base.html" %}
+
+{% block title %}Submissions{% endblock %}
+{% block page_title %}Assignment Submissions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Submissions</h2>
+		<p>{{ submissions|length }} submission(s) received</p>
+	</div>
+</div>
+
+<div class="card">
+	<div class="card-body p-0">
+		<table class="table mb-0">
+			<thead>
+				<tr>
+					<th>Student</th>
+					<th>Submitted At</th>
+					<th>File</th>
+					<th>Marks</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tbody>
+					{% for sub in submissions %}
+					<tr>
+						<td><strong>{{ sub.student.first_name }} {{ sub.student.last_name }}</strong></td>
+						<td>{{ sub.submitted_at.strftime('%d %b %Y %H:%M') if sub.submitted_at else '—' }}</td>
+						<td>
+							<a href="{{ url_for('admin.download_file', filename=sub.file_path) }}" class="btn btn-sm btn-outline-navy">
+								<i class="bi bi-download me-1"></i>Download
+							</a>
+						</td>
+						<td>
+							{% if sub.marks %}
+							<span class="badge-grade">{{ sub.marks }}</span>
+							{% else %}
+							<span class="text-muted">Not graded</span>
+							{% endif %}
+						</td>
+						<td>
+							<a href="{{ url_for('teacher.grade_submission', submission_id=sub.id) }}" class="btn btn-sm btn-amber">
+								<i class="bi bi-pencil me-1"></i>Grade
+							</a>
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="5" class="text-center text-muted py-4">No submissions yet.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

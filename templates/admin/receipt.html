@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Receipt{% endblock %}
+{% block page_title %}Payment Receipt{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Payment Receipt</h2>
+	</div>
+	<button onclick="window.print()" class="btn btn-amber">
+		<i class="bi bi-printer me-2"></i>Print Receipt
+	</button>
+</div>
+
+<div class="card" style="max-width:520px;margin:auto;" id="receipt">
+	<div class="card-body p-4">
+		{% if payment.is_sandbox_simulated %}
+		<div class="alert alert-warning text-center py-2 mb-3 small">
+			<strong>TEST / SANDBOX SIMULATOR RECEIPT — NOT A REAL PAYMENT</strong>
+		</div>
+		{% endif %}
+
+		<div class="text-center mb-4">
+			<h3 style="font-family:'Playfair Display',serif;color:var(--navy);">
+				{{ payment.school.name if payment.school else 'EduManage School' }}
+			</h3>
+			<p class="text-muted mb-0">Official Fee Payment Receipt</p>
+			<hr/>
+		</div>
+
+		<table class="table table-borderless">
+			<tbody>
+				<tr>
+					<td class="text-muted">Receipt No</td>
+					<td class="text-end fw-bold">{{ payment.reference }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Student</td>
+					<td class="text-end fw-bold">{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Admission No</td>
+					<td class="text-end">{{ payment.student.admission_no }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Term</td>
+					<td class="text-end">{{ payment.term.name if payment.term else '—' }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Payment Method</td>
+					<td class="text-end">{{ (payment.payment_method or 'Manual')|replace('_', ' ')|title }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Transaction Ref</td>
+					<td class="text-end">{{ payment.lipila_reference_id or payment.bank_reference or '—' }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Payment Date</td>
+					<td class="text-end">{{ payment.payment_date.strftime('%d %b %Y') if payment.payment_date else '—' }}</td>
+				</tr>
+				<tr style="border-top:2px solid var(--border);">
+					<td class="fw-bold fs-5">Amount Paid</td>
+					<td class="text-end fw-bold fs-5" style="color:var(--success);">
+						K{{ "%.2f"|format(payment.amount_paid) }}
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<div class="text-center mt-3">
+			<small class="text-muted">Thank you for your payment</small>
+		</div>
+	</div>
+</div>
+
+<style>
+	@media print {
+		#sidebar, .topbar, .mobile-bottom-nav, .page-header button, .btn {
+			display: none !important;
+		}
+		#main { margin-left: 0 !important; }
+		#receipt {
+			box-shadow: none;
+			border: 1px solid #ccc;
+		}
+	}
+</style>
+{% endblock %}

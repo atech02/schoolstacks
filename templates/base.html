@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+	<meta name="theme-color" content="#1e293b"/>
+	<meta name="apple-mobile-web-app-capable" content="yes"/>
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+	<meta name="apple-mobile-web-app-title" content="EduManage"/>
+	<link rel="manifest" href="{{ url_for('manifest') }}"/>
+	<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}"/>
+	<title>{% block title %}EduManage{% endblock %} — School Management</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com"/>
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+	<link href="{{ url_for('static', filename='css/brand-theme.css') }}" rel="stylesheet"/>
+	<style>
+	:root {
+		--color-mustard: #FFB800;
+		--color-strong-blue: #002583;
+		--color-cool-gray: #E5E8EF;
+		--navy: var(--color-strong-blue);
+		--navy2: #001858;
+		--amber: var(--color-mustard);
+		--amber2: #E6A600;
+		--slate: #52607A;
+		--light: var(--color-cool-gray);
+		--border: #D5DAE5;
+		--success: #10b981;
+		--danger: #ef4444;
+		--info: var(--color-strong-blue);
+	}
+	*, *::before, *::after { box-sizing: border-box; }
+	body {
+		font-family: 'DM Sans', sans-serif;
+		background: var(--light);
+		color: #1e293b;
+		min-height: 100vh;
+		display: flex;
+		margin: 0;
+	}
+
+	/* ── Sidebar ── */
+	#sidebar {
+		width: 260px;
+		min-height: 100vh;
+		max-height: 100vh;
+		overflow-y: auto;
+		background: var(--navy);
+		display: flex;
+		flex-direction: column;
+		position: fixed;
+		top: 0; left: 0;
+		z-index: 1040;
+		transition: transform .3s ease;
+	}
+	.sidebar-backdrop {
+		display: none;
+		position: fixed;
+		inset: 0;
+		background: rgba(15, 23, 42, .55);
+		z-index: 1035;
+	}
+	.sidebar-backdrop.show { display: block; }
+	.sidebar-brand {
+		padding: 24px 20px 18px;
+		border-bottom: 1px solid rgba(255,255,255,.08);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.sidebar-brand h1 {
+		font-family: 'Playfair Display', serif;
+		font-size: 1.4rem;
+		color: #fff;
+		margin: 0;
+		letter-spacing: -.3px;
+	}
+	.sidebar-brand span { color: var(--amber); }
+	.sidebar-role {
+		font-size: .7rem;
+		color: rgba(255,255,255,.45);
+		text-transform: uppercase;
+		letter-spacing: 1.5px;
+		margin-top: 4px;
+	}
+	.sidebar-nav { padding: 14px 12px; flex: 1; }
+	.nav-section {
+		font-size: .65rem;
+		color: rgba(255,255,255,.35);
+		text-transform: uppercase;
+		letter-spacing: 1.5px;
+		padding: 14px 12px 6px;
+	}
+	.sidebar-nav .nav-link {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		color: rgba(255,255,255,.7);
+		padding: 10px 12px;
+		border-radius: 8px;
+		font-size: .875rem;
+		font-weight: 500;
+		text-decoration: none;
+		transition: all .2s;
+		margin-bottom: 2px;
+	}
+	.sidebar-nav .nav-link:hover,
+	.sidebar-nav .nav-link.active {
+		background: rgba(245,158,11,.15);
+		color: var(--amber);
+	}
+	.sidebar-nav .nav-link i { font-size: 1rem; width: 20px; text-align: center; }
+	.sidebar-footer {
+		padding: 14px 12px;
+		border-top: 1px solid rgba(255,255,255,.08);
+	}
+	.sidebar-footer .nav-link {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		color: rgba(255,255,255,.6);
+		font-size: .82rem;
+		padding: 8px 12px;
+		border-radius: 8px;
+		text-decoration: none;
+	}
+	.sidebar-footer .nav-link:hover { color: #fff; background: rgba(255,255,255,.06); }
+
+	/* ── Main content ── */
+	#main {
+		margin-left: 260px;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		min-width: 0;
+	}
+	.topbar {
+		background: #fff;
+		border-bottom: 1px solid var(--border);
+		padding: 0 24px;
+		height: 64px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		position: sticky;
+		top: 0;
+		z-index: 1020;
+	}
+	.topbar-title {
+		font-family: 'Playfair Display', serif;
+		font-size: 1.15rem;
+		font-weight: 700;
+		color: var(--navy);
+	}
+	.topbar-right { display: flex; align-items: center; gap: 12px; }
+	.notif-btn {
+		position: relative;
+		background: none;
+		border: none;
+		color: var(--slate);
+		font-size: 1.2rem;
+		cursor: pointer;
+		border-radius: 8px;
+		padding: 6px 8px;
+		transition: background .2s;
+	}
+	.notif-btn:hover { background: var(--light); }
+	.notif-badge {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		width: 8px; height: 8px;
+		background: var(--danger);
+		border-radius: 50%;
+	}
+	.user-chip {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background: var(--light);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 5px 12px 5px 5px;
+		font-size: .8rem;
+		font-weight: 600;
+		color: var(--navy);
+	}
+	.user-avatar {
+		width: 28px; height: 28px;
+		border-radius: 50%;
+		background: var(--navy);
+		color: var(--amber);
+		display: flex; align-items: center; justify-content: center;
+		font-size: .75rem; font-weight: 700;
+	}
+	.content-area { padding: 24px; flex: 1; }
+
+	/* ── Cards ── */
+	.card {
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		box-shadow: 0 1px 3px rgba(0,0,0,.04);
+	}
+	.card-header {
+		background: #fff;
+		border-bottom: 1px solid var(--border);
+		border-radius: 14px 14px 0 0 !important;
+		padding: 15px 20px;
+		font-weight: 600;
+		font-size: .95rem;
+	}
+	.stat-card {
+		background: #fff;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		padding: 18px 20px;
+		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+	.stat-icon {
+		width: 50px; height: 50px;
+		border-radius: 12px;
+		display: flex; align-items: center; justify-content: center;
+		font-size: 1.35rem;
+		flex-shrink: 0;
+	}
+	.stat-icon.navy, .stat-icon-navy { background: rgba(30,41,59,.08); color: var(--navy); display:flex; align-items:center; justify-content:center; }
+	.stat-icon.amber { background: rgba(245,158,11,.14); color: var(--amber2); }
+	.stat-icon.green { background: rgba(16,185,129,.12); color: var(--success); }
+	.stat-icon.blue { background: rgba(59,130,246,.12); color: var(--info); }
+	.stat-value { font-size: 1.65rem; font-weight: 700; line-height: 1.1; }
+	.stat-label { font-size: .8rem; color: var(--slate); margin-top: 2px; }
+
+	/* ── Forms & Buttons ── */
+	.form-control, .form-select {
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 10px 14px;
+		font-family: 'DM Sans', sans-serif;
+		font-size: .875rem;
+		transition: border-color .2s, box-shadow .2s;
+	}
+	.form-control:focus, .form-select:focus {
+		border-color: var(--amber);
+		box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+		outline: none;
+	}
+	.form-label { font-weight: 600; font-size: .82rem; margin-bottom: 6px; color: #374151; }
+	.btn-primary {
+		background: var(--navy);
+		border: none;
+		border-radius: 8px;
+		padding: 10px 20px;
+		font-weight: 600;
+		font-size: .875rem;
+		transition: background .2s, transform .1s;
+	}
+	.btn-primary:hover { background: var(--navy2); transform: translateY(-1px); }
+	.btn-amber {
+		background: var(--amber);
+		color: var(--navy);
+		border: none;
+		border-radius: 8px;
+		padding: 10px 20px;
+		font-weight: 700;
+		font-size: .875rem;
+	}
+	.btn-amber:hover { background: var(--amber2); color: var(--navy); }
+	.btn-outline-navy {
+		border: 1.5px solid var(--navy);
+		color: var(--navy);
+		background: transparent;
+		border-radius: 8px;
+		padding: 8px 16px;
+		font-weight: 600;
+		font-size: .875rem;
+	}
+	.btn-outline-navy:hover { background: var(--navy); color: #fff; }
+
+	/* ── Tables ── */
+	.table { font-size: .875rem; }
+	.table th {
+		font-size: .72rem;
+		text-transform: uppercase;
+		letter-spacing: .8px;
+		color: var(--slate);
+		font-weight: 600;
+		background: var(--light);
+		border-bottom: 1px solid var(--border);
+		padding: 12px 16px;
+		white-space: nowrap;
+	}
+	.table td { padding: 13px 16px; vertical-align: middle; border-color: var(--border); }
+	.table tbody tr:hover { background: #fafbfc; }
+
+	/* ── Badges ── */
+	.badge-present {
+		background: rgba(16,185,129,.12);
+		color: #047857;
+		border-radius: 6px;
+		padding: 4px 10px;
+		font-size: .75rem;
+		font-weight: 600;
+	}
+	.badge-absent {
+		background: rgba(239,68,68,.12);
+		color: #b91c1c;
+		border-radius: 6px;
+		padding: 4px 10px;
+		font-size: .75rem;
+		font-weight: 600;
+	}
+	.badge-grade {
+		background: rgba(30,41,59,.08);
+		color: var(--navy);
+		border-radius: 6px;
+		padding: 4px 10px;
+		font-size: .75rem;
+		font-weight: 700;
+	}
+
+	/* ── Flash messages ── */
+	.alert {
+		border: none;
+		border-radius: 10px;
+		font-size: .875rem;
+		font-weight: 500;
+	}
+	.alert-success { background: rgba(16,185,129,.12); color: #065f46; }
+	.alert-danger, .alert-error { background: rgba(239,68,68,.12); color: #991b1b; }
+	.alert-warning { background: rgba(245,158,11,.15); color: #92400e; }
+
+	/* ── Page header ── */
+	.page-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-bottom: 24px;
+	}
+	.page-header h2 {
+		font-family: 'Playfair Display', serif;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--navy);
+		margin: 0;
+	}
+	.page-header p { color: var(--slate); margin: 4px 0 0; font-size: .875rem; }
+
+	/* ── Mobile Navigation & Responsive ── */
+	.sidebar-toggle {
+		display: none;
+		background: none;
+		border: none;
+		font-size: 1.5rem;
+		color: var(--navy);
+		padding: 4px 8px;
+	}
+	.mobile-bottom-nav {
+		display: none;
+		position: fixed;
+		bottom: 0; left: 0; right: 0;
+		height: 62px;
+		background: #fff;
+		border-top: 1px solid var(--border);
+		z-index: 1030;
+		justify-content: space-around;
+		align-items: center;
+		padding-bottom: env(safe-area-inset-bottom);
+		box-shadow: 0 -2px 10px rgba(0,0,0,.04);
+	}
+	.mobile-bottom-nav a {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		text-decoration: none;
+		color: var(--slate);
+		font-size: .68rem;
+		font-weight: 600;
+		gap: 2px;
+		flex: 1;
+		height: 100%;
+	}
+	.mobile-bottom-nav a i { font-size: 1.15rem; }
+	.mobile-bottom-nav a.active, .mobile-bottom-nav a:hover { color: var(--navy); }
+	.mobile-bottom-nav a.active i { color: var(--amber2); }
+
+	#pwaInstallBanner {
+		display: none;
+		background: var(--navy);
+		color: #fff;
+		padding: 10px 16px;
+		border-radius: 10px;
+		margin-bottom: 16px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	@media (max-width: 768px) {
+		#sidebar { transform: translateX(-100%); }
+		#sidebar.open { transform: translateX(0); }
+		#main { margin-left: 0; padding-bottom: 70px; }
+		.sidebar-toggle { display: inline-flex; }
+		.mobile-bottom-nav { display: flex; }
+		.topbar { padding: 0 14px; }
+		.content-area { padding: 16px 14px; }
+		.user-chip span.username-label { display: none; }
+	}
+	</style>
+	{% block extra_css %}{% endblock %}
+</head>
+<body>
+	{% if current_user.is_authenticated %}
+	<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+
+	<!-- Sidebar -->
+	<nav id="sidebar" aria-label="Sidebar Navigation">
+		<div class="sidebar-brand">
+			<div class="d-inline-flex flex-column align-items-start">
+				<div class="bg-white rounded px-2 py-1 shadow-sm d-inline-flex align-items-center">
+					<img src="/images/logo.jpg" alt="EduManage" style="width:120px;height:24px;object-fit:cover;object-position:center;display:block;">
+				</div>
+				<span style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:3px;font-weight:500;">A smarter way to manage your school</span>
+				<div class="sidebar-role" style="font-size:11px;margin-top:2px;">
+					{% if g.school %}{{ g.school.name }} &bull; {% endif %}{{ current_user.role | title }}
+				</div>
+			</div>
+			<button class="btn btn-sm text-white d-md-none" onclick="toggleSidebar(false)" aria-label="Close menu">
+				<i class="bi bi-x-lg"></i>
+			</button>
+		</div>
+
+		<div class="sidebar-nav">
+			{% if current_user.role == 'superadmin' %}
+			<div class="nav-section">Platform Owner</div>
+			<a href="{{ url_for('superadmin.dashboard') }}" class="nav-link {% if request.endpoint == 'superadmin.dashboard' %}active{% endif %}">
+				<i class="bi bi-speedometer2"></i> Overview
+			</a>
+			<a href="{{ url_for('superadmin.schools') }}" class="nav-link {% if request.endpoint == 'superadmin.schools' %}active{% endif %}">
+				<i class="bi bi-buildings"></i> Schools
+			</a>
+			<a href="{{ url_for('superadmin.analytics') }}" class="nav-link {% if request.endpoint == 'superadmin.analytics' %}active{% endif %}">
+				<i class="bi bi-graph-up-arrow"></i> Platform Analytics
+			</a>
+
+			{% elif current_user.role == 'admin' %}
+			<div class="nav-section">Overview</div>
+			<a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+				<i class="bi bi-grid-1x2"></i> Dashboard
+			</a>
+			<div class="nav-section">Academics</div>
+			<a href="{{ url_for('admin.students_list') }}" class="nav-link {% if request.endpoint == 'admin.students_list' %}active{% endif %}"><i class="bi bi-people"></i> Students</a>
+			<a href="{{ url_for('admin.register_student') }}" class="nav-link {% if request.endpoint == 'admin.register_student' %}active{% endif %}"><i class="bi bi-person-plus"></i> Register Student</a>
+			<a href="{{ url_for('admin.teachers_list') }}" class="nav-link {% if request.endpoint == 'admin.teachers_list' %}active{% endif %}"><i class="bi bi-person-badge"></i> Teachers</a>
+			<a href="{{ url_for('admin.register_teacher') }}" class="nav-link {% if request.endpoint == 'admin.register_teacher' %}active{% endif %}"><i class="bi bi-person-plus-fill"></i> Register Teacher</a>
+			<a href="{{ url_for('admin.create_class') }}" class="nav-link {% if request.endpoint == 'admin.create_class' %}active{% endif %}"><i class="bi bi-building"></i> Classes</a>
+			<a href="{{ url_for('admin.add_subject') }}" class="nav-link {% if request.endpoint == 'admin.add_subject' %}active{% endif %}"><i class="bi bi-book"></i> Subjects</a>
+			<a href="{{ url_for('admin.create_timetable') }}" class="nav-link {% if request.endpoint == 'admin.create_timetable' %}active{% endif %}"><i class="bi bi-calendar3"></i> Timetable</a>
+			<div class="nav-section">Finance & Billing</div>
+			<a href="{{ url_for('admin.set_fees') }}" class="nav-link {% if request.endpoint == 'admin.set_fees' %}active{% endif %}"><i class="bi bi-cash-stack"></i> Set Fees</a>
+			<a href="{{ url_for('billing.plans') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('billing.') %}active{% endif %}"><i class="bi bi-credit-card-2-front"></i> Subscription &amp; Billing</a>
+			<div class="nav-section">Admin</div>
+			<a href="{{ url_for('admin.manage_terms') }}" class="nav-link {% if request.endpoint == 'admin.manage_terms' %}active{% endif %}"><i class="bi bi-calendar-range"></i> Terms & Exams</a>
+			<a href="{{ url_for('admin.create_announcement') }}" class="nav-link {% if request.endpoint == 'admin.create_announcement' %}active{% endif %}"><i class="bi bi-megaphone"></i> Announcements</a>
+			<a href="{{ url_for('admin.analytics') }}" class="nav-link {% if request.endpoint == 'admin.analytics' %}active{% endif %}"><i class="bi bi-bar-chart-line"></i> Analytics</a>
+
+			{% elif current_user.role == 'teacher' %}
+			<div class="nav-section">Overview</div>
+			<a href="{{ url_for('teacher.dashboard') }}" class="nav-link {% if request.endpoint == 'teacher.dashboard' %}active{% endif %}">
+				<i class="bi bi-grid-1x2"></i> Dashboard
+			</a>
+			<div class="nav-section">Teaching</div>
+			<a href="{{ url_for('teacher.attendance') }}" class="nav-link {% if request.endpoint == 'teacher.attendance' %}active{% endif %}"><i class="bi bi-check2-square"></i> Attendance</a>
+			<a href="{{ url_for('teacher.upload_material') }}" class="nav-link {% if request.endpoint == 'teacher.upload_material' %}active{% endif %}"><i class="bi bi-cloud-upload"></i> Upload Materials</a>
+			<a href="{{ url_for('teacher.create_assignment') }}" class="nav-link {% if request.endpoint == 'teacher.create_assignment' %}active{% endif %}"><i class="bi bi-file-earmark-text"></i> Assignments</a>
+			<a href="{{ url_for('teacher.enter_results') }}" class="nav-link {% if request.endpoint == 'teacher.enter_results' %}active{% endif %}"><i class="bi bi-clipboard-data"></i> Enter Results</a>
+
+			{% elif current_user.role == 'student' %}
+			<div class="nav-section">Overview</div>
+			<a href="{{ url_for('student.dashboard') }}" class="nav-link {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+				<i class="bi bi-grid-1x2"></i> Dashboard
+			</a>
+			<div class="nav-section">My School</div>
+			<a href="{{ url_for('student.assignments') }}" class="nav-link {% if request.endpoint == 'student.assignments' %}active{% endif %}"><i class="bi bi-file-earmark-text"></i> Assignments</a>
+			<a href="{{ url_for('student.materials') }}" class="nav-link {% if request.endpoint == 'student.materials' %}active{% endif %}"><i class="bi bi-folder2-open"></i> Materials</a>
+			<a href="{{ url_for('student.fees') }}" class="nav-link {% if request.endpoint == 'student.fees' %}active{% endif %}"><i class="bi bi-cash"></i> Fees &amp; Online Pay</a>
+			<a href="{{ url_for('student.announcements') }}" class="nav-link {% if request.endpoint == 'student.announcements' %}active{% endif %}"><i class="bi bi-megaphone"></i> Announcements</a>
+			<a href="{{ url_for('student.notifications') }}" class="nav-link {% if request.endpoint == 'student.notifications' %}active{% endif %}"><i class="bi bi-bell"></i> Notifications</a>
+
+			{% elif current_user.role == 'parent' %}
+			<div class="nav-section">Overview</div>
+			<a href="{{ url_for('parent.dashboard') }}" class="nav-link {% if request.endpoint == 'parent.dashboard' %}active{% endif %}">
+				<i class="bi bi-grid-1x2"></i> Dashboard
+			</a>
+			<div class="nav-section">My Children</div>
+			<a href="{{ url_for('parent.announcement') }}" class="nav-link {% if request.endpoint == 'parent.announcement' %}active{% endif %}"><i class="bi bi-megaphone"></i> Announcements</a>
+			<a href="{{ url_for('parent.notifications') }}" class="nav-link {% if request.endpoint == 'parent.notifications' %}active{% endif %}"><i class="bi bi-bell"></i> Notifications</a>
+			{% endif %}
+		</div>
+
+		<div class="sidebar-footer">
+			<a href="{{ url_for('auth.change_password') }}" class="nav-link"><i class="bi bi-key"></i> Change Password</a>
+			<a href="{{ url_for('auth.logout') }}" class="nav-link"><i class="bi bi-box-arrow-left"></i> Logout</a>
+		</div>
+	</nav>
+
+	<!-- Main Content -->
+	<div id="main">
+		<header class="topbar">
+			<div class="d-flex align-items-center gap-2">
+				<button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation menu">
+					<i class="bi bi-list"></i>
+				</button>
+				<span class="topbar-title">{% block page_title %}Dashboard{% endblock %}</span>
+			</div>
+			<div class="topbar-right">
+				{% if config.get('LIPILA_SIMULATOR_ENABLED') %}
+				<span class="badge bg-warning text-dark d-none d-sm-inline-flex align-items-center gap-1" title="Sandbox Simulator active — test mode">
+					<i class="bi bi-bug-fill"></i> Test Mode
+				</span>
+				{% endif %}
+				{% if not current_user.is_superadmin %}
+				<button class="notif-btn" aria-label="Notifications" onclick="window.location='{% if current_user.role == 'student' %}{{ url_for('student.notifications') }}{% elif current_user.role == 'parent' %}{{ url_for('parent.notifications') }}{% else %}{{ url_for('admin.get_notifications') }}{% endif %}'">
+					<i class="bi bi-bell"></i>
+					<span class="notif-badge"></span>
+				</button>
+				{% endif %}
+				<div class="user-chip">
+					<div class="user-avatar">{{ current_user.username[0] | upper }}</div>
+					<span class="username-label">{{ current_user.username }}</span>
+				</div>
+			</div>
+		</header>
+
+		<main class="content-area">
+			<!-- Install PWA Banner -->
+			<div id="pwaInstallBanner" role="region" aria-label="Install Application">
+				<div class="d-flex align-items-center gap-2">
+					<i class="bi bi-phone-fill text-warning fs-5"></i>
+					<span style="font-size:.85rem;">Install <strong>EduManage</strong> on your device for quick access &amp; offline support.</span>
+				</div>
+				<div class="d-flex gap-2">
+					<button type="button" class="btn btn-sm btn-amber" id="pwaInstallBtn">Install</button>
+					<button type="button" class="btn btn-sm btn-outline-light" onclick="document.getElementById('pwaInstallBanner').style.display='none'">Later</button>
+				</div>
+			</div>
+
+			{% with messages = get_flashed_messages(with_categories=true) %}
+			{% if messages %}
+			{% for category, message in messages %}
+			<div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+				<i class="bi bi-{% if category == 'success' %}check-circle{% elif category in ('danger', 'error') %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+				{{ message }}
+				<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+			</div>
+			{% endfor %}
+			{% endif %}
+			{% endwith %}
+
+			{% block content %}{% endblock %}
+		</main>
+	</div>
+
+	<!-- Mobile Bottom Navigation -->
+	<nav class="mobile-bottom-nav" aria-label="Mobile quick navigation">
+		{% if current_user.role == 'admin' %}
+		<a href="{{ url_for('admin.dashboard') }}" class="{% if request.endpoint == 'admin.dashboard' %}active{% endif %}"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+		<a href="{{ url_for('admin.students_list') }}" class="{% if request.endpoint == 'admin.students_list' %}active{% endif %}"><i class="bi bi-people"></i><span>Students</span></a>
+		<a href="{{ url_for('admin.set_fees') }}" class="{% if request.endpoint == 'admin.set_fees' %}active{% endif %}"><i class="bi bi-cash-stack"></i><span>Fees</span></a>
+		<a href="{{ url_for('billing.plans') }}" class="{% if request.endpoint and request.endpoint.startswith('billing.') %}active{% endif %}"><i class="bi bi-credit-card"></i><span>Billing</span></a>
+		<a href="#" onclick="toggleSidebar(true);return false;"><i class="bi bi-list"></i><span>Menu</span></a>
+		{% elif current_user.role == 'teacher' %}
+		<a href="{{ url_for('teacher.dashboard') }}" class="{% if request.endpoint == 'teacher.dashboard' %}active{% endif %}"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+		<a href="{{ url_for('teacher.attendance') }}" class="{% if request.endpoint == 'teacher.attendance' %}active{% endif %}"><i class="bi bi-check2-square"></i><span>Attend</span></a>
+		<a href="{{ url_for('teacher.create_assignment') }}" class="{% if request.endpoint == 'teacher.create_assignment' %}active{% endif %}"><i class="bi bi-file-earmark-text"></i><span>Tasks</span></a>
+		<a href="{{ url_for('teacher.enter_results') }}" class="{% if request.endpoint == 'teacher.enter_results' %}active{% endif %}"><i class="bi bi-clipboard-data"></i><span>Marks</span></a>
+		<a href="#" onclick="toggleSidebar(true);return false;"><i class="bi bi-list"></i><span>Menu</span></a>
+		{% elif current_user.role == 'student' %}
+		<a href="{{ url_for('student.dashboard') }}" class="{% if request.endpoint == 'student.dashboard' %}active{% endif %}"><i class="bi bi-grid-1x2"></i><span>Home</span></a>
+		<a href="{{ url_for('student.assignments') }}" class="{% if request.endpoint == 'student.assignments' %}active{% endif %}"><i class="bi bi-journal-text"></i><span>Tasks</span></a>
+		<a href="{{ url_for('student.fees') }}" class="{% if request.endpoint == 'student.fees' %}active{% endif %}"><i class="bi bi-cash"></i><span>Fees</span></a>
+		<a href="{{ url_for('student.materials') }}" class="{% if request.endpoint == 'student.materials' %}active{% endif %}"><i class="bi bi-folder2-open"></i><span>Files</span></a>
+		<a href="{{ url_for('student.notifications') }}" class="{% if request.endpoint == 'student.notifications' %}active{% endif %}"><i class="bi bi-bell"></i><span>Alerts</span></a>
+		{% elif current_user.role == 'parent' %}
+		<a href="{{ url_for('parent.dashboard') }}" class="{% if request.endpoint == 'parent.dashboard' %}active{% endif %}"><i class="bi bi-grid-1x2"></i><span>Children</span></a>
+		<a href="{{ url_for('parent.announcement') }}" class="{% if request.endpoint == 'parent.announcement' %}active{% endif %}"><i class="bi bi-megaphone"></i><span>News</span></a>
+		<a href="{{ url_for('parent.notifications') }}" class="{% if request.endpoint == 'parent.notifications' %}active{% endif %}"><i class="bi bi-bell"></i><span>Alerts</span></a>
+		<a href="#" onclick="toggleSidebar(true);return false;"><i class="bi bi-list"></i><span>Menu</span></a>
+		{% elif current_user.role == 'superadmin' %}
+		<a href="{{ url_for('superadmin.dashboard') }}" class="{% if request.endpoint == 'superadmin.dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i><span>Overview</span></a>
+		<a href="{{ url_for('superadmin.schools') }}" class="{% if request.endpoint == 'superadmin.schools' %}active{% endif %}"><i class="bi bi-buildings"></i><span>Schools</span></a>
+		<a href="{{ url_for('superadmin.analytics') }}" class="{% if request.endpoint == 'superadmin.analytics' %}active{% endif %}"><i class="bi bi-graph-up"></i><span>Stats</span></a>
+		{% endif %}
+	</nav>
+
+	{% else %}
+	<div style="width:100%">{% block auth_content %}{% endblock %}</div>
+	{% endif %}
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+	<script>
+	function toggleSidebar(forceOpen) {
+		const sb = document.getElementById('sidebar');
+		const bd = document.getElementById('sidebarBackdrop');
+		if (!sb) return;
+		const isOpen = typeof forceOpen === 'boolean' ? forceOpen : !sb.classList.contains('open');
+		sb.classList.toggle('open', isOpen);
+		if (bd) bd.classList.toggle('show', isOpen);
+	}
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape') toggleSidebar(false);
+	});
+
+	// PWA Service Worker & Install Prompt
+	let deferredPwaPrompt = null;
+	window.addEventListener('beforeinstallprompt', (e) => {
+		e.preventDefault();
+		deferredPwaPrompt = e;
+		const banner = document.getElementById('pwaInstallBanner');
+		if (banner) banner.style.display = 'flex';
+	});
+	const installBtn = document.getElementById('pwaInstallBtn');
+	if (installBtn) {
+		installBtn.addEventListener('click', async () => {
+			if (!deferredPwaPrompt) return;
+			deferredPwaPrompt.prompt();
+			await deferredPwaPrompt.userChoice;
+			deferredPwaPrompt = null;
+			document.getElementById('pwaInstallBanner').style.display = 'none';
+		});
+	}
+	if ('serviceWorker' in navigator) {
+		window.addEventListener('load', () => {
+			navigator.serviceWorker.register('/sw.js').then((reg) => {
+				reg.addEventListener('updatefound', () => {
+					const newWorker = reg.installing;
+					if (newWorker) {
+						newWorker.addEventListener('statechange', () => {
+							if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+								newWorker.postMessage({ type: 'SKIP_WAITING' });
+							}
+						});
+					}
+				});
+			}).catch(() => {});
+		});
+	}
+	</script>
+	{% block extra_js %}{% endblock %}
+</body>
+</html>

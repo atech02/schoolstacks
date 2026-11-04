@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Platform Analytics{% endblock %}
+{% block page_title %}Platform Analytics{% endblock %}
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Platform Growth &amp; Revenue</h2>
+		<p>12-month signups and verified subscription revenue (ZMW)</p>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-lg-6">
+		<div class="card">
+			<div class="card-header">Monthly School Signups</div>
+			<div class="card-body"><canvas id="signupsChart" height="220"></canvas></div>
+		</div>
+	</div>
+	<div class="col-lg-6">
+		<div class="card">
+			<div class="card-header">Monthly Verified Revenue (ZMW)</div>
+			<div class="card-body"><canvas id="revenueChart" height="220"></canvas></div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('signupsChart'), {
+	type: 'bar',
+	data: {
+		labels: {{ months | tojson }},
+		datasets: [{ label: 'Signups', data: {{ signup_counts | tojson }}, backgroundColor: '#1e293b', borderRadius: 6 }]
+	}
+});
+new Chart(document.getElementById('revenueChart'), {
+	type: 'line',
+	data: {
+		labels: {{ months | tojson }},
+		datasets: [{ label: 'Revenue (ZMW)', data: {{ revenue_counts | tojson }}, borderColor: '#f59e0b', tension: 0.3 }]
+	}
+});
+</script>
+{% endblock %}

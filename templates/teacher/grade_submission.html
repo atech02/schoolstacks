@@ -1,0 +1,78 @@
+<!-- grade_submission.html -->
+{% extends "base.html" %}
+
+{% block title %}Grade Submission{% endblock %}
+{% block page_title %}Grade Submission{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Grade Submission</h2>
+		<p>Student: <strong>{{ submission.student.first_name }} {{ submission.student.last_name }}</strong></p>
+	</div>
+	<a href="{{ url_for('teacher.view_submissions', assignment_id=submission.assignment_id) }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back
+	</a>
+</div>
+
+<div class="row g-4">
+	<div class="col-md-5">
+		<div class="card">r
+			<div class="card-header">
+				<i class="bi bi-info-circle me-2"></i>Submission Info
+			</div>
+			<div class="card-body">
+				<table class="table table-borderless mb-0" style="font-size:.875rem;">
+					<tr>
+						<td class="text-muted">Assignment</td>
+						<td><strong>{{ submission.assignment.title }}</strong></td>
+					</tr>      
+					<tr>
+						<td class="text-muted">Student</td>
+						<td>{{ submission.student.first_name }} {{ submission.student.last_name }}</td>
+					</tr>
+					<tr>
+						<td class="text-muted">Submitted</td>
+						<td>{{ submission.submitted_at.strftime('%d %b %Y') if submission.submitted_at else '—' }}</td>
+					</tr>
+					<tr>
+						<td class="text-muted">File</td>
+						<td>
+							<a href="{{ url_for('admin.download_file', filename=submission.file_path) }}" class="btn btn-sm btn-outline-navy">
+								<i class="bi bi-download me-1"></i>Download          
+							</a>
+						</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-md-7">
+		<div class="card">
+			<div class="card-header">
+				<i class="bi bi-pencil-square me-2"></i>Enter Grade
+			</div>
+			<div class="card-body p-4">   
+				<form method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+					<div class="mb-3">
+						<label class="form-label">Marks (out of 100)</label>
+						<input type="number" name="marks" class="form-control" min="0" max="100" step="0.5" value="{{ submission.marks or '' }}" required>
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label">Feedback / Comments</label>
+						<textarea name="feedback" class="form-control" rows="4" placeholder="Write feedback for the student...">{{ submission.feedback or '' }}</textarea>
+					</div>
+
+					<button type="submit" class="btn btn-primary w-100">
+						<i class="bi bi-check-circle me-2"></i>Save Grade
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

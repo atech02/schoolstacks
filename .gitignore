@@ -1,0 +1,36 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+serviceAccountKey.json
+firebase-debug.log*
+
+# Ignored project directories
+node_modules/
+mobile/
+
+# Python bytecode & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Databases & local instance files
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# User uploads (generated at runtime)
+static/uploads/
+uploads/
+
+# Firebase & IDE caches
+.firebase/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

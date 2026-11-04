@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}School Registered{% endblock %}
+{% block auth_content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center py-5 px-3" style="background:#0f1f3d;">
+	<div class="card border-0 shadow-lg p-4 p-md-5 text-center" style="max-width:500px;width:100%;border-radius:18px;">
+		<div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.15);color:#10b981;font-size:2rem;">
+			<i class="bi bi-check-lg"></i>
+		</div>
+		<h2 class="fw-bold" style="color:#0f1f3d;">{{ school.name }} is Ready!</h2>
+		<p class="text-muted small">
+			Your school workspace (<code>{{ school.subdomain }}</code>) has been created with default administrator username <strong>admin</strong>.
+		</p>
+		<div class="bg-light p-3 rounded-3 mb-4 text-start small">
+			<div><strong>School Portal Link:</strong> <a href="{{ school_url }}">{{ school_url }}</a></div>
+			<div><strong>Admin Username:</strong> <code>admin</code></div>
+		</div>
+		<a href="{{ url_for('auth.login') }}" class="btn btn-primary w-100 py-2">
+			Proceed to Sign In <i class="bi bi-arrow-right ms-1"></i>
+		</a>
+	</div>
+</div>
+{% endblock %}

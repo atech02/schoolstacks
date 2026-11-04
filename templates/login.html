@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Sign In{% endblock %}
+{% block auth_content %}
+<style>
+  .login-wrap {
+	  min-height: 100vh;
+	  display: flex;
+	  background: var(--color-strong-blue);
+  }
+  .login-left {
+	  flex: 1;
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  padding: 48px;
+	  background: linear-gradient(135deg, #001858 0%, var(--color-strong-blue) 60%, #002d9c 100%);
+	  position: relative;
+	  overflow: hidden;
+  }
+  .login-left::before {
+	  content: '';
+	  position: absolute;
+	  width: 500px; height: 500px;
+	  border-radius: 50%;
+	  border: 80px solid rgba(255,184,0,.08);
+	  top: -100px; left: -100px;
+  }
+  .login-left::after {
+	  content: '';
+	  position: absolute;
+	  width: 300px; height: 300px;
+	  border-radius: 50%;
+	  border: 50px solid rgba(229,232,239,.08);
+	  bottom: -80px; right: -80px;
+  }
+  .login-hero { position: relative; z-index: 1; max-width: 420px; color: #fff; }
+  .login-hero h1 {
+	  font-family: 'Playfair Display', serif;
+	  font-size: 2.8rem;
+	  line-height: 1.15;
+	  margin-bottom: 16px;
+  }
+  .login-hero h1 span { color: var(--color-mustard); }
+  .login-hero p { color: var(--color-cool-gray); font-size: 1rem; line-height: 1.7; }
+  .feature-list { list-style: none; padding: 0; margin-top: 28px; }
+  .feature-list li {
+	  color: var(--color-cool-gray);
+	  font-size: .875rem;
+	  padding: 6px 0;
+	  display: flex;
+	  align-items: center;
+	  gap: 10px;
+  }
+  .feature-list li i { color: var(--color-mustard); }
+  .login-right {
+	  width: 460px;
+	  background: #fff;
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  padding: 40px 36px;
+  }
+  .login-form-wrap { width: 100%; max-width: 360px; }
+  .login-form-wrap p { color: #52607A; font-size: .875rem; margin-bottom: 24px; }
+  .btn-login {
+	  width: 100%;
+	  background: var(--color-strong-blue);
+	  color: #fff;
+	  border: none;
+	  border-radius: 10px;
+	  padding: 13px;
+	  font-size: .95rem;
+	  font-weight: 600;
+	  letter-spacing: .3px;
+	  transition: background .2s, transform .1s;
+	  margin-top: 8px;
+  }
+  .btn-login:hover { background: #001858; transform: translateY(-1px); color: #fff; }
+  @media (max-width: 768px) {
+	  .login-left { display: none; }
+	  .login-right { width: 100%; padding: 28px 20px; }
+  }
+</style>
+
+<div class="login-wrap">
+	<div class="login-left">
+		<div class="login-hero">
+			<div class="mb-3 d-inline-flex flex-column align-items-start">
+				<div class="bg-white rounded px-2 py-1 shadow-sm d-inline-flex align-items-center">
+					<img src="/images/logo.jpg" alt="EduManage" style="width:140px;height:28px;object-fit:cover;object-position:center;display:block;">
+				</div>
+				<span style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;font-weight:500;">A smarter way to manage your school</span>
+			</div>
+			<p>A complete multi-school platform for managing students, teachers, online fees, attendance, and academic results.</p>
+			<ul class="feature-list">
+				<li><i class="bi bi-check-circle-fill"></i> Student &amp; Teacher Management</li>
+				<li><i class="bi bi-check-circle-fill"></i> Mobile Money (MTN, Airtel, Zamtel) &amp; Card Payments</li>
+				<li><i class="bi bi-check-circle-fill"></i> Results &amp; PDF Report Cards</li>
+				<li><i class="bi bi-check-circle-fill"></i> Attendance &amp; Timetable Tracking</li>
+				<li><i class="bi bi-check-circle-fill"></i> Parent &amp; Student Mobile Portals</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="login-right">
+		<div class="login-form-wrap">
+			<div class="d-flex justify-content-between align-items-center mb-2">
+				<h2 class="fw-bold mb-0" style="color:#0f1f3d;">Welcome back</h2>
+				<a href="{{ url_for('onboarding.landing') }}" class="text-decoration-none small text-muted"><i class="bi bi-house"></i> Home</a>
+			</div>
+			<p>
+				{% if school %}
+				Signing in to <strong>{{ school.name }}</strong>
+				{% else %}
+				Sign in to your school portal to continue
+				{% endif %}
+			</p>
+
+			{% with messages = get_flashed_messages(with_categories=true) %}
+			{% if messages %}
+			{% for category, message in messages %}
+			<div class="alert alert-{{ category }} mb-3" style="border-radius:10px;font-size:.875rem;">
+				{{ message }}
+			</div>
+			{% endfor %}
+			{% endif %}
+			{% endwith %}
+
+			<form method="POST" action="{{ url_for('auth.login') }}">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+				{% if school %}
+				<input type="hidden" name="school_subdomain" value="{{ school.subdomain }}">
+				{% elif schools %}
+				<div class="mb-3">
+					<label class="form-label">School</label>
+					<select name="school_subdomain" class="form-select">
+						<option value="">Select your school (or leave blank for Superadmin)...</option>
+						{% for s in schools %}
+						<option value="{{ s.subdomain }}" {% if session.get('selected_school_subdomain') == s.subdomain %}selected{% endif %}>
+							{{ s.name }} ({{ s.subdomain }})
+						</option>
+						{% endfor %}
+					</select>
+				</div>
+				{% endif %}
+
+				<div class="mb-3">
+					<label class="form-label">Username / Admission No</label>
+					<input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus/>
+				</div>
+				<div class="mb-4">
+					<label class="form-label">Password</label>
+					<div class="position-relative">
+						<input type="password" name="password" id="login-password" class="form-control pe-5" placeholder="Enter your password" required/>
+						<button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none px-3" onclick="const p=document.getElementById('login-password'); const isP=p.type==='password'; p.type=isP?'text':'password'; this.querySelector('i').className=isP?'bi bi-eye-slash-fill':'bi bi-eye-fill';" title="Toggle password visibility" style="z-index:5;">
+							<i class="bi bi-eye-fill"></i>
+						</button>
+					</div>
+				</div>
+				<button type="submit" class="btn-login">Sign In <i class="bi bi-arrow-right ms-1"></i></button>
+			</form>
+
+			<div class="mt-4 pt-3 border-top text-center small text-muted">
+				New school? <a href="{{ url_for('onboarding.register') }}" class="fw-bold text-decoration-none" style="color:#0f1f3d;">Register your school</a>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

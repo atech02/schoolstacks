@@ -1,0 +1,26 @@
+{
+  "name": "EduManage — School Management Platform",
+  "short_name": "EduManage",
+  "description": "Multi-tenant school management system with Lipila Mobile Money & Card payments, attendance, exams, and parent/student portals.",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
+  "categories": ["education", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

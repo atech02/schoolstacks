@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Fee Balance{% endblock %}
+{% block page_title %}My Fees &amp; Online Payment{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Fee Balance</h2>
+		<p>Outstanding balance per term &bull; Pay school fees online using Mobile Money or Card</p>
+	</div>
+</div>
+
+<div class="row g-3 mb-4">
+	{% for item in data %}
+	<div class="col-md-4">
+		<div class="card p-4 text-center h-100">
+			<div class="stat-icon {% if item.balance <= 0 %}green{% else %}amber{% endif %} mx-auto mb-3" style="width:52px;height:52px;">
+				<i class="bi bi-{% if item.balance <= 0 %}check-circle{% else %}cash{% endif %}"></i>
+			</div>
+			<h6 class="fw-bold">{{ item.term }}</h6>
+			<div style="font-size:1.6rem;font-weight:700;color:{% if item.balance <= 0 %}var(--success){% else %}var(--danger){% endif %};">
+				K{{ "%.2f"|format(item.balance) }}
+			</div>
+			<div style="font-size:.75rem;color:#64748b;margin-top:4px;" class="mb-3">
+				{% if item.balance <= 0 %}Fully Paid{% else %}Outstanding{% endif %}
+			</div>
+			{% if item.balance > 0 and item.term_id %}
+			<a href="{{ url_for('billing.fee_checkout', student_id=student.id, term_id=item.term_id) }}" class="btn btn-sm btn-amber w-100">
+				<i class="bi bi-credit-card me-1"></i>Pay Fees Online
+			</a>
+			{% endif %}
+		</div>
+	</div>
+	{% else %}
+	<div class="col-12 text-center text-muted py-5">No fee data available.</div>
+	{% endfor %}
+</div>
+
+{% if payments is defined %}
+<div class="card">
+	<div class="card-header">My Payment &amp; Receipt History</div>
+	<div class="card-body p-0">
+		<div class="table-responsive">
+			<table class="table mb-0">
+				<thead>
+					<tr>
+						<th>Receipt / Ref</th>
+						<th>Term</th>
+						<th>Method</th>
+						<th>Amount</th>
+						<th>Status</th>
+						<th>Date</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for p in payments %}
+					<tr>
+						<td>
+							<code>{{ p.reference or p.lipila_reference_id or '—' }}</code>
+							{% if p.is_sandbox_simulated %}<span class="badge bg-warning text-dark ms-1">TEST</span>{% endif %}
+						</td>
+						<td>{{ p.term.name if p.term else '—' }}</td>
+						<td>{{ (p.payment_method or 'manual')|replace('_', ' ')|title }}</td>
+						<td>K{{ "%.2f"|format(p.amount_paid) }}</td>
+						<td>
+							{% if p.status in ('completed', None) %}
+							<span class="badge-present">Completed</span>
+							{% elif p.status == 'pending' %}
+							<span class="badge bg-warning text-dark">Pending</span>
+							{% else %}
+							<span class="badge-absent">Failed</span>
+							{% endif %}
+						</td>
+						<td>{{ p.payment_date.strftime('%d %b %Y') if p.payment_date else '—' }}</td>
+						<td>
+							{% if p.status in ('completed', None) %}
+							<a href="{{ url_for('admin.receipt', payment_id=p.id) }}" class="btn btn-sm btn-outline-navy">Receipt</a>
+							{% elif p.lipila_reference_id %}
+							<a href="{{ url_for('billing.payment_status', reference_id=p.lipila_reference_id) }}" class="btn btn-sm btn-warning">Status</a>
+							{% endif %}
+						</td>
+					</tr>
+					{% else %}
+					<tr><td colspan="7" class="text-center text-muted py-4">No payments recorded yet.</td></tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% endblock %}

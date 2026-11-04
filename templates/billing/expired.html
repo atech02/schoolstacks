@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Subscription Expired{% endblock %}
+{% block page_title %}Subscription Expired{% endblock %}
+{% block content %}
+<div class="card p-5 text-center mx-auto" style="max-width:520px;">
+	<div class="stat-icon amber mx-auto mb-3" style="width:64px;height:64px;border-radius:50%;font-size:2rem;">
+		<i class="bi bi-exclamation-triangle-fill"></i>
+	</div>
+	<h3 class="fw-bold">School Subscription Expired</h3>
+	<p class="text-muted small">
+		{% if school %}<strong>{{ school.name }}</strong>'s{% else %}Your school's{% endif %} subscription or trial period has ended. Please renew online using Mobile Money or Card to restore full access.
+	</p>
+	<a href="{{ url_for('billing.plans') }}" class="btn btn-amber mt-2">View Plans &amp; Renew</a>
+</div>
+{% endblock %}

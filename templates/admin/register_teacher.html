@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Register Teacher{% endblock %}
+{% block page_title %}Register Teacher{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Register Teacher</h2>
+		<p>Add a new teacher to the system</p>
+	</div>
+	<a href="{{ url_for('admin.teachers_list') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back to List
+	</a>
+</div>
+
+<div class="card" style="max-width:500px;">
+	<div class="card-header">
+		<i class="bi bi-person-badge me-2"></i>Teacher Details
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<label class="form-label">First Name</label>
+					<input type="text" name="first_name" class="form-control" required/>     
+				</div>
+
+				<div class="col-md-6">
+					<label class="form-label">Last Name</label>
+					<input type="text" name="last_name" class="form-control" required/>
+				</div>
+												                
+				<div class="col-12">
+					<label class="form-label">Phone Number</label>
+					<input type="text" name="phone" class="form-control" placeholder="Numbers only" required/>
+				</div>
+																				                
+				<div class="col-12">
+					<button type="submit" class="btn btn-primary w-100">
+						<i class="bi bi-person-check me-2"></i>Register Teacher
+					</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+{% endblock %}

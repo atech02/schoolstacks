@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Create Class{% endblock %}
+{% block page_title %}Classes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Manage Classes</h2>
+		<p>Create and view school classes</p>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-md-5">
+		<div class="card">
+			<div class="card-header">
+				<i class="bi bi-plus-circle me-2"></i>Create New Class
+			</div>
+			<div class="card-body p-4">
+				<form method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">                   
+					<div class="mb-3">
+						<label class="form-label">Class Name</label>
+						<input type="text" name="name" class="form-control" placeholder="e.g. Grade 8A" required/>
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label">Capacity</label>
+						<input type="number" name="capacity" class="form-control" placeholder="e.g. 40" min="1" required/>
+					</div>
+														                       
+					<button type="submit" class="btn btn-primary w-100">
+						<i class="bi bi-building me-2"></i>Create Class
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-md-7">
+		<div class="card">
+			<div class="card-header">Existing Classes</div>
+			<div class="card-body p-0">
+				<table class="table mb-0">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Capacity</th>
+							<th>Timetable</th>
+						</tr>
+						<tbody>
+							{% for c in classes %}
+							<tr>
+								<td><strong>{{ c.name }}</strong></td>
+								<td>{{ c.capacity }}</td>
+								<td>
+									<a href="{{ url_for('admin.view_timetable', class_id=c.id) }}" class="btn btn-sm btn-outline-navy">View</a>
+								</td>
+							</tr>
+							{% else %}
+							<tr>
+								<td colspan="3" class="text-center text-muted py-4">No classes yet.</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

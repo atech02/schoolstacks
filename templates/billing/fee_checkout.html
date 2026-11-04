@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Pay School Fees{% endblock %}
+{% block page_title %}Pay School Fees Online{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Pay School Fees</h2>
+		<p>
+			Student: <strong>{{ student.first_name }} {{ student.last_name }}</strong> ({{ student.admission_no }})
+			&bull; Term: <strong>{{ term.name }}</strong>
+		</p>
+	</div>
+	<a href="{% if current_user.role == 'parent' %}{{ url_for('parent.fees', student_id=student.id) }}{% else %}{{ url_for('student.fees') }}{% endif %}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back to Fees
+	</a>
+</div>
+
+{% if simulator_mode %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4" style="max-width:560px;">
+	<i class="bi bi-bug-fill fs-5"></i>
+	<div class="small">
+		<strong>TEST MODE (Sandbox Simulator):</strong> No real money will be charged. Simulated payments are marked as test transactions.
+	</div>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:560px;">
+	<div class="card-header d-flex justify-content-between align-items-center">
+		<span><i class="bi bi-shield-lock me-2"></i>Secure Online Fee Checkout</span>
+		<span class="badge bg-dark text-warning">Outstanding: K{{ "%.2f"|format(balance) }}</span>
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<div class="mb-3">
+				<label class="form-label">Amount to Pay (ZMW)</label>
+				<input type="number" name="amount" class="form-control" step="0.01" min="1" max="{{ balance }}" value="{{ '%.2f'|format(balance) }}" required/>
+				<div class="form-text">You may pay the full balance (K{{ "%.2f"|format(balance) }}) or a partial installment.</div>
+			</div>
+
+			<div class="mb-3">
+				<label class="form-label">Payment Method</label>
+				<select name="payment_method" class="form-select" required>
+					<option value="mobile_money">Mobile Money (MTN MoMo / Airtel Money / Zamtel Kwacha)</option>
+					<option value="card">Bank Card (Visa / Mastercard)</option>
+				</select>
+			</div>
+
+			<div class="mb-4">
+				<label class="form-label">Mobile Money Phone Number</label>
+				<input type="text" name="phone_number" class="form-control" placeholder="e.g. 0977123456 or 260977123456" required/>
+				<div class="form-text">A USSD PIN prompt will be sent to this phone number for Mobile Money payments.</div>
+			</div>
+
+			<button type="submit" class="btn btn-amber w-100 py-2">
+				<i class="bi bi-lock-fill me-2"></i>Proceed to Secure Payment
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

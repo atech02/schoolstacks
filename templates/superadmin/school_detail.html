@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}School Detail{% endblock %}
+{% block page_title %}{{ school.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>{{ school.name }}</h2>
+		<p>Subdomain: <code>{{ school.subdomain }}</code> &bull; Contact: {{ school.email }}</p>
+	</div>
+	<a href="{{ url_for('superadmin.schools') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>All Schools
+	</a>
+</div>
+
+<div class="row g-3 mb-4">
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon blue"><i class="bi bi-people"></i></div>
+			<div>
+				<div class="stat-value">{{ students }}</div>
+				<div class="stat-label">Students</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon amber"><i class="bi bi-person-badge"></i></div>
+			<div>
+				<div class="stat-value">{{ teachers }}</div>
+				<div class="stat-label">Teachers</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon green"><i class="bi bi-award"></i></div>
+			<div>
+				<div class="stat-value">{{ school.plan|title }}</div>
+				<div class="stat-label">Current Plan</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">Platform Controls</div>
+			<div class="card-body p-4">
+				<form method="POST" action="{{ url_for('superadmin.override_plan', school_id=school.id) }}" class="mb-3">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+					<label class="form-label">Override Subscription Plan</label>
+					<div class="input-group">
+						<select name="plan" class="form-select">
+							{% for p in ['free', 'starter', 'growth', 'enterprise'] %}
+							<option value="{{ p }}" {% if school.plan == p %}selected{% endif %}>{{ p|title }}</option>
+							{% endfor %}
+						</select>
+						<button type="submit" class="btn btn-primary">Update Plan</button>
+					</div>
+				</form>
+
+				<form method="POST" action="{{ url_for('superadmin.toggle_school', school_id=school.id) }}">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+					<button type="submit" class="btn {% if school.is_active %}btn-outline-danger{% else %}btn-success{% endif %} w-100">
+						{% if school.is_active %}Deactivate School{% else %}Activate School{% endif %}
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-md-6">
+		<div class="card">
+			<div class="card-header">Portal Users ({{ users|length }})</div>
+			<div class="card-body p-0">
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<thead><tr><th>Username</th><th>Role</th><th>Verified</th></tr></thead>
+						<tbody>
+							{% for u in users[:10] %}
+							<tr>
+								<td><strong>{{ u.username }}</strong></td>
+								<td>{{ u.role|title }}</td>
+								<td>{{ 'Yes' if u.is_verified else 'No' }}</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

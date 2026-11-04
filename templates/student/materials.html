@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Materials{% endblock %}
+{% block page_title %}Learning Materials{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Learning Materials</h2>
+		<p>{{ materials|length }} resource(s) available</p>
+	</div>
+</div>
+
+<div class="row g-3">
+	{% for m in materials %}
+	<div class="col-md-6 col-lg-4">
+		<div class="card h-100">
+			<div class="card-body p-4">      
+				<div class="d-flex align-items-start gap-3 mb-3">
+					<div class="stat-icon amber" style="width:44px;height:44px;border-radius:10px;flex-shrink:0;">		                    
+						<i class="bi bi-file-earmark-text"></i>
+					</div>
+					<div>
+						<strong>{{ m.title }}</strong>
+						<div style="font-size:.75rem;color:#64748b;">
+							{{ m.upload_date.strftime('%d %b %Y') if m.upload_date else '—' }}
+						</div>
+					</div>
+				</div>
+				<p style="font-size:.8rem;color:#64748b;margin-bottom:12px;">{{ m.description or 'No description.' }}</p>
+				<a href="{{ url_for('admin.download_file', filename=m.filename) }}" class="btn btn-sm btn-outline-navy w-100">
+					<i class="bi bi-download me-1"></i>Download
+				</a>
+			</div>
+		</div>
+	</div>
+	{% else %}
+	<div class="col-12">
+		<div class="card p-5 text-center">
+			<i class="bi bi-folder2-open" style="font-size:2.5rem;color:#cbd5e1;"></i>
+			<p class="text-muted mt-3 mb-0">No materials have been uploaded yet.</p>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+{% endblock %}

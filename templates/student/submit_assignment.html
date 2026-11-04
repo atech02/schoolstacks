@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Submit Assignment{% endblock %}
+{% block page_title %}Submit Assignment{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div><h2>Submit Assignment</h2></div>
+	<a href="{{ url_for('student.assignments') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back
+	</a>
+</div>
+
+<div class="card" style="max-width:520px;">
+	<div class="card-header">
+		<i class="bi bi-file-earmark-arrow-up me-2"></i>{{ assignment.title }}
+	</div>
+	<div class="card-body p-4">
+		<div class="alert alert-warning mb-4">
+			<strong>Due:</strong> {{ assignment.deadline.strftime('%d %b %Y') if assignment.deadline else '—' }}<br/>
+			<strong>Subject:</strong> {{ assignment.subject.name if assignment.subject else '—' }}<br/>
+			<strong>Description:</strong> {{ assignment.description or 'No description provided.' }}
+		</div>
+		<form method="POST" enctype="multipart/form-data">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+			<div class="mb-4">
+				<label class="form-label">Upload Your Work</label>
+				<input type="file" name="file" class="form-control" required accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"/>
+				<div class="form-text">Allowed: PDF, DOC, DOCX, TXT, PNG, JPG</div>
+			</div>
+			<button type="submit" class="btn btn-primary w-100">
+				<i class="bi bi-send me-2"></i>Submit Assignment
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}

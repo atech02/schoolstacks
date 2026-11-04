@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Payment Status{% endblock %}
+{% block page_title %}Payment Verification Status{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Transaction Status</h2>
+		<p>Reference: <code>{{ reference_id }}</code></p>
+	</div>
+</div>
+
+{% if record.is_sandbox_simulated or simulator_mode %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4" style="max-width:560px;">
+	<i class="bi bi-exclamation-octagon-fill fs-5"></i>
+	<div class="small">
+		<strong>TEST MODE TRANSACTION:</strong> Processed via the development Sandbox Simulator. Not a real financial settlement.
+	</div>
+</div>
+{% endif %}
+
+<div class="card" style="max-width:560px;">
+	<div class="card-body p-4 text-center">
+		{% if record.status in ('completed', 'active') %}
+		<div class="stat-icon green mx-auto mb-3" style="width:64px;height:64px;border-radius:50%;font-size:2rem;">
+			<i class="bi bi-check-circle-fill"></i>
+		</div>
+		<h4 class="fw-bold text-success">Payment Confirmed</h4>
+		{% elif record.status == 'pending' %}
+		<div class="stat-icon amber mx-auto mb-3" style="width:64px;height:64px;border-radius:50%;font-size:2rem;">
+			<i class="bi bi-hourglass-split"></i>
+		</div>
+		<h4 class="fw-bold text-warning">Payment Pending Confirmation</h4>
+		<p class="text-muted small">
+			Your payment is being processed. Your payment status will update once confirmation is received.
+		</p>
+		{% else %}
+		<div class="stat-icon mx-auto mb-3" style="width:64px;height:64px;border-radius:50%;font-size:2rem;background:rgba(239,68,68,.12);color:#ef4444;">
+			<i class="bi bi-x-circle-fill"></i>
+		</div>
+		<h4 class="fw-bold text-danger">Payment Failed / Declined</h4>
+		{% endif %}
+
+		<table class="table table-borderless text-start my-3 small">
+			<tbody>
+				<tr>
+					<td class="text-muted">Payment Reference</td>
+					<td class="text-end fw-bold"><code>{{ reference_id }}</code></td>
+				</tr>
+				<tr>
+					<td class="text-muted">Type</td>
+					<td class="text-end">{{ 'School Subscription (' ~ record.plan|title ~ ')' if kind == 'subscription' else 'Student Fee Payment' }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Amount</td>
+					<td class="text-end fw-bold">{{ record.currency or 'ZMW' }} {{ "%.2f"|format(record.amount if kind == 'subscription' else record.amount_paid) }}</td>
+				</tr>
+				<tr>
+					<td class="text-muted">Method</td>
+					<td class="text-end">{{ (record.payment_method or '')|replace('_', ' ')|title }}</td>
+				</tr>
+				{% if kind == 'fee' and record.reference %}
+				<tr>
+					<td class="text-muted">Official Receipt No</td>
+					<td class="text-end fw-bold text-success">{{ record.reference }}</td>
+				</tr>
+				{% endif %}
+			</tbody>
+		</table>
+
+		<div class="d-grid gap-2 mt-3">
+			{% if record.status == 'pending' %}
+			<form method="POST" action="{{ url_for('billing.reconcile_status', reference_id=reference_id) }}">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<button type="submit" class="btn btn-primary w-100">
+					<i class="bi bi-arrow-repeat me-1"></i>Check / Reconcile Payment Status
+				</button>
+			</form>
+			{% if simulator_mode %}
+			<a href="{{ url_for('billing.sandbox_checkout', reference_id=reference_id) }}" class="btn btn-amber">
+				<i class="bi bi-sliders me-1"></i>Open Sandbox Simulator Controls
+			</a>
+			{% endif %}
+			{% endif %}
+
+			{% if kind == 'fee' and record.status == 'completed' %}
+			<a href="{{ url_for('admin.receipt', payment_id=record.id) }}" class="btn btn-amber">
+				<i class="bi bi-receipt me-1"></i>View &amp; Print Official Receipt ({{ record.reference }})
+			</a>
+			{% endif %}
+
+			{% if kind == 'subscription' %}
+			<a href="{{ url_for('billing.plans') }}" class="btn btn-outline-navy">Back to Subscription Plans</a>
+			{% elif current_user.role == 'parent' %}
+			<a href="{{ url_for('parent.fees', student_id=record.student_id) }}" class="btn btn-outline-navy">Back to Child Fees</a>
+			{% else %}
+			<a href="{{ url_for('student.fees') }}" class="btn btn-outline-navy">Back to My Fees</a>
+			{% endif %}
+		</div>
+	</div>
+</div>
+{% endblock %}

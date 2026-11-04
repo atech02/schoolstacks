@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Announcements{% endblock %}
+{% block page_title %}School Announcements{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Announcements</h2>
+		<p>Updates for your children's classes</p>
+	</div>
+</div>
+
+<div class="d-flex flex-column gap-3">
+	{% for a in announcements %}
+	<div class="card">
+		<div class="card-body p-4">
+			<div class="d-flex justify-content-between align-items-start mb-2">
+				<h6 class="fw-bold mb-0">{{ a.title }}</h6>
+				<span class="text-muted small">{{ a.created_at.strftime('%d %b %Y') if a.created_at else '' }}</span>
+			</div>
+			{% if a.school_class %}
+			<span class="badge bg-warning text-dark">{{ a.school_class.name }}</span>
+			{% else %}
+			<span class="badge bg-light text-dark">All Classes</span>
+			{% endif %}
+			<p class="mt-2 mb-0 text-secondary" style="font-size:.875rem;">{{ a.message }}</p>
+		</div>
+	</div>
+	{% else %}
+	<div class="card p-5 text-center">
+		<i class="bi bi-megaphone" style="font-size:2.5rem;color:#cbd5e1;"></i>
+		<p class="text-muted mt-3 mb-0">No announcements at the moment.</p>
+	</div>
+	{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,109 @@
+/* ==========================================================================
+   EduManage Official Brand Colour Palette & ShaderGradient Surface Tokens
+   Primary Foundation Colours:
+   - Mustard Gold:    #FFB800
+   - Strong Blue:     #002583
+   - Cool Light Gray: #E5E8EF
+   ========================================================================== */
+
+:root {
+  /* Required Official Brand Tokens */
+  --color-mustard: #FFB800;
+  --color-strong-blue: #002583;
+  --color-cool-gray: #E5E8EF;
+  --color-white: #FFFFFF;
+
+  /* Controlled Tonal Derivatives (derived strictly from the 3 brand colours) */
+  --color-strong-blue-deep: #001858;
+  --color-strong-blue-mid: #002070;
+  --color-strong-blue-soft: rgba(0, 37, 131, 0.08);
+  --color-mustard-hover: #E6A600;
+  --color-mustard-soft: rgba(255, 184, 0, 0.16);
+  --color-mustard-glow: rgba(255, 184, 0, 0.32);
+  --color-cool-gray-soft: #F4F6FA;
+  --color-cool-gray-border: #D5DAE5;
+
+  /* Map Application Legacy Tokens to Official Brand Palette */
+  --navy: var(--color-strong-blue);
+  --navy2: var(--color-strong-blue-deep);
+  --amber: var(--color-mustard);
+  --amber2: var(--color-mustard-hover);
+  --light: var(--color-cool-gray-soft);
+  --border: var(--color-cool-gray);
+}
+
+/* ── Static CSS Gradient Fallback & Base Layer for Hero ── */
+.shadergradient-hero-stage {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-strong-blue-deep);
+  background-image:
+    radial-gradient(circle at 78% 24%, rgba(255, 184, 0, 0.28) 0%, rgba(255, 184, 0, 0.06) 28%, transparent 55%),
+    radial-gradient(circle at 22% 80%, rgba(229, 232, 239, 0.18) 0%, transparent 50%),
+    radial-gradient(circle at 52% 48%, rgba(0, 37, 131, 0.92) 0%, rgba(0, 24, 88, 0.98) 72%),
+    linear-gradient(135deg, var(--color-strong-blue-deep) 0%, var(--color-strong-blue) 58%, #001d66 100%);
+  isolation: isolate;
+}
+
+/* ── Isolated ShaderGradient Canvas Mount ── */
+.shadergradient-mount {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none !important;
+  user-select: none !important;
+  overflow: hidden;
+}
+
+.shadergradient-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  opacity: 0;
+  transition: opacity 0.65s ease-out;
+}
+
+.shadergradient-mount[data-shader-state="ready"] .shadergradient-canvas,
+.shadergradient-mount[data-shader-state="static"] .shadergradient-canvas {
+  opacity: 1;
+}
+
+.shadergradient-mount[data-shader-state="fallback"] .shadergradient-canvas {
+  display: none !important;
+}
+
+/* ── Subtle Readability Scrim Behind Hero Copy ── */
+.hero-readability-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none !important;
+  background:
+    radial-gradient(ellipse 68% 78% at 28% 50%, rgba(0, 24, 88, 0.62) 0%, rgba(0, 37, 131, 0.28) 62%, rgba(0, 24, 88, 0.12) 100%),
+    linear-gradient(180deg, rgba(0, 24, 88, 0.38) 0%, rgba(0, 24, 88, 0.12) 45%, rgba(0, 24, 88, 0.45) 100%);
+}
+
+/* ── Accessible Keyboard Focus Outlines ── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-mustard) !important;
+  outline-offset: 2px;
+}
+
+/* ── Reduced Motion Guarantee ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

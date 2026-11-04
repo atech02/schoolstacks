@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Terms & Exams{% endblock %}
+{% block page_title %}Terms & Exams{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Terms & Exams</h2>
+		<p>Manage academic terms and examinations</p>
+	</div>
+</div>
+
+<div class="row g-4">
+	<!-- Terms Section -->
+	<div class="col-md-6">
+		<!--Add Term Form -->
+		<div class="card mb-4">    
+			<div class="card-header">
+				<i class="bi bi-calendar-range me-2"></i>Add Term
+			</div>
+			<div class="card-body p-4">
+				<form method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+					<input type="hidden" name="add_term" value="1">
+
+					<div class="mb-3">
+						<label class="form-label">Term Name</label>
+						<input type="text" name="name" class="form-control" placeholder="e.g. Term 1 2024" required/>
+					</div>
+												               
+					<div class="row g-2 mb-3">       
+						<div class="col">
+							<label class="form-label">Start Date</label>
+							<input type="date" name="start_date" class="form-control" required/>
+						</div>
+						<div class="col">
+							<label class="form-label">End Date</label>
+							<input type="date" name="end_date" class="form-control" required/>
+						</div>
+					</div>
+
+					<button type="submit" class="btn btn-primary w-100">Add Term</button>
+				</form>
+			</div>
+		</div>
+
+		<!-- Existing Terms Table -->
+		<div class="card">
+			<div class="card-header">Existing Terms</div>
+			<div class="card-body p-0">
+				<table class="table mb-0">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Start</th>
+							<th>End</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for t in terms %}
+						<tr>
+							<td><strong>{{ t.name }}</strong></td>
+							<td>{{ t.start_date }}</td>
+							<td>{{ t.end_date }}</td>
+						</tr>
+						{% else %}            
+						<tr>
+							<td colspan="3" class="text-center text-muted py-3">No terms added.</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<!-- Exams Section -->
+	<div class="col-md-6">
+		<!-- Add Exam Form -->
+		<div class="card mb-4">
+			<div class="card-header">
+				<i class="bi bi-journal-check me-2"></i>Add Exam
+				</div>
+				<div class="card-body p-4">
+					<form method="POST">
+						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+						<input type="hidden" name="add_exam" value="1">
+																			             
+						<div class="mb-3">
+							<label class="form-label">Exam Name</label>
+							<input type="text" name="name" class="form-control" placeholder="e.g. Mid-Term Exam" required/>
+						</div>
+
+						<div class="mb-4">
+							<label class="form-label">Term</label>
+							<select name="term_id" class="form-select" required>
+								<option value="">Select term...</option>
+								{% for t in terms %}
+								<option value="{{ t.id }}">{{ t.name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+																				             
+						<button type="submit" class="btn btn-primary w-100">Add Exam</button>
+					</form>
+				</div>
+		</div>
+
+		<!-- Existing Exams Table -->
+		<div class="card">
+			<div class="card-header">Existing Exams</div>
+			<div class="card-body p-0">
+				<table class="table mb-0">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Term</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for e in exams %}
+						<tr>
+							<td><strong>{{ e.name }}</strong></td>
+							<td>{{ e.term.name }}</td>
+						</tr>
+						{% else %}
+						<tr>
+							<td colspan="2" class="text-center text-muted py-3">No exams added.</td>
+						</tr>
+						{% endfor %}     
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

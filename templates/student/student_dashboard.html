@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>{{ student.first_name }} {{ student.last_name }}</h2>
+		<p>
+			Admission: <strong>{{ student.admission_no }}</strong> &nbsp;|&nbsp;
+			Class: <strong>{{ student.school_class.name if student.school_class else '—' }}</strong>
+		</p>
+	</div>
+	{% if terms %}
+	<a href="{{ url_for('student.report_card_pdf', student_id=student.id, term_id=terms[0].id) }}" class="btn btn-amber" target="_blank">
+		<i class="bi bi-file-earmark-pdf me-1"></i>Report Card ({{ terms[0].name }})
+	</a>
+	{% endif %}
+</div>
+
+<div class="row g-3 mb-4">
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon blue"><i class="bi bi-clipboard-data"></i></div>
+			<div>
+				<div class="stat-value">{{ results|length }}</div>
+				<div class="stat-label">Results Available</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon amber"><i class="bi bi-folder2-open"></i></div>
+			<div>
+				<div class="stat-value">{{ materials|length }}</div>
+				<div class="stat-label">Materials Available</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-4">
+		<div class="stat-card">
+			<div class="stat-icon navy"><i class="bi bi-person-circle"></i></div>
+			<div>
+				<div class="stat-value">{{ student.gender or '—' }}</div>
+				<div class="stat-label">Gender</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-md-7">
+		<div class="card">
+			<div class="card-header">My Recent Results</div>
+			<div class="card-body p-0">
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<thead>
+							<tr>
+								<th>Subject</th>
+								<th>Exam</th>
+								<th>Marks</th>
+								<th>Grade</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for r in results[:8] %}
+							<tr>
+								<td>{{ r.subject.name if r.subject else '—' }}</td>
+								<td>{{ r.exam.name if r.exam else '—' }}</td>
+								<td>{{ r.marks }}</td>
+								<td>
+									{% set g = r.marks %}
+									<span class="badge-grade">
+										{% if g >= 80 %}A{% elif g >= 70 %}B{% elif g >= 60 %}C{% elif g >= 50 %}D{% else %}F{% endif %}
+									</span>
+								</td>
+							</tr>
+							{% else %}
+							<tr>
+								<td colspan="4" class="text-center text-muted py-4">No results yet.</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-5">
+		<div class="card">
+			<div class="card-header">Quick Links</div>
+			<div class="card-body p-3">
+				<div class="d-grid gap-2">
+					<a href="{{ url_for('student.assignments') }}" class="btn btn-outline-navy">
+						<i class="bi bi-file-earmark-text me-2"></i>View Assignments
+					</a>
+					<a href="{{ url_for('student.materials') }}" class="btn btn-outline-navy">
+						<i class="bi bi-folder2-open me-2"></i>Learning Materials
+					</a>
+					<a href="{{ url_for('student.fees') }}" class="btn btn-outline-navy">
+						<i class="bi bi-cash me-2"></i>Fee Balance &amp; Online Pay
+					</a>
+					<a href="{{ url_for('student.announcements') }}" class="btn btn-outline-navy">
+						<i class="bi bi-megaphone me-2"></i>Announcements
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

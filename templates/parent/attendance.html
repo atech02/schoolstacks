@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title%}Child Attendance{% endblock %}
+{% block page_title %}Attendance Record{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Attendance Record</h2>    
+		<p>{{ records|length }} record(s)</p>
+	</div>
+	<a href="{{ url_for('parent.dashboard') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back
+	</a>
+</div>
+
+<div class="card">
+	<div class="card-body p-0">
+		<table class="table mb-0">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Status</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for r in records %}
+				<tr>
+					<td>{{ r.date.strftime('%d %b %Y') if r.date else '—' }}</td>
+					<td>
+						{% if r.status == 'Present' %}    
+						<span class="badge-present">Present</span>
+						{% else %}           
+						<span class="badge-absent">Absent</span>
+						{% endif %}
+					</td>
+				</tr>
+				{% else %}         
+				<tr>
+					<td colspan="2" class="text-center text-muted py-4">No attendance records.</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

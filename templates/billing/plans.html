@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Subscription & Billing{% endblock %}
+{% block page_title %}Subscription & Billing{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>School Subscription Plan</h2>
+		<p>
+			Current Plan: <span class="badge bg-dark text-warning">{{ school.plan | upper }}</span>
+			{% if school.subscription_ends_at %}
+			&bull; Valid until {{ school.subscription_ends_at.strftime('%d %b %Y') }}
+			{% elif school.is_on_trial() %}
+			&bull; Free Trial ends {{ school.trial_ends_at.strftime('%d %b %Y') }}
+			{% endif %}
+		</p>
+	</div>
+	{% if school.plan != 'free' %}
+	<form method="POST" action="{{ url_for('billing.cancel') }}" onsubmit="return confirm('Downgrade to Free tier?');">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+		<button type="submit" class="btn btn-outline-danger btn-sm">Cancel Plan</button>
+	</form>
+	{% endif %}
+</div>
+
+{% if simulator_mode %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-4">
+	<i class="bi bi-bug-fill fs-5"></i>
+	<div>
+		<strong>Payment Sandbox Simulator Mode Active:</strong> No real API key is configured. Checkout will open the interactive Test Simulator so you can test Mobile Money &amp; Card workflows safely.
+	</div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-5">
+	{% for plan_key in ['starter', 'growth', 'enterprise'] %}
+	{% set p = prices.get(plan_key, {}) %}
+	<div class="col-md-4">
+		<div class="card h-100 {% if school.plan == plan_key %}border-warning border-2{% endif %}">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span class="fw-bold">{{ p.get('name', plan_key|title) }}</span>
+				{% if school.plan == plan_key %}
+				<span class="badge bg-success">Active Plan</span>
+				{% endif %}
+			</div>
+			<div class="card-body p-4 d-flex flex-column">
+				<div class="mb-3">
+					<span class="fs-2 fw-bold" style="color:var(--navy);">K{{ "%.0f"|format(p.get('amount_monthly', 0)) }}</span>
+					<span class="text-muted small">/month</span>
+					<div class="text-muted small">or K{{ "%.0f"|format(p.get('amount_yearly', 0)) }}/year</div>
+				</div>
+
+				<ul class="list-unstyled small text-secondary flex-grow-1 mb-4">
+					{% for feat in features.get(plan_key, []) %}
+					<li class="mb-2"><i class="bi bi-check-circle-fill text-warning me-2"></i>{{ feat }}</li>
+					{% endfor %}
+				</ul>
+
+				<form method="POST" action="{{ url_for('billing.checkout', plan=plan_key, cycle='monthly') }}" class="mt-auto" id="form_{{ plan_key }}">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+					<div class="mb-2">
+						<label class="form-label small mb-1">Payment Method</label>
+						<select name="payment_method" class="form-select form-select-sm">
+							<option value="mobile_money">Mobile Money (MTN / Airtel / Zamtel)</option>
+							<option value="card">Bank Card (Visa / Mastercard)</option>
+						</select>
+					</div>
+					<div class="mb-3">
+						<label class="form-label small mb-1">Mobile Money / Contact Number</label>
+						<input type="text" name="phone_number" class="form-control form-control-sm" placeholder="0977000000" value="{{ school.phone or '' }}" required/>
+					</div>
+					<div class="d-grid gap-2">
+						<button type="submit" class="btn btn-primary btn-sm">
+							<i class="bi bi-lightning-charge me-1"></i>Subscribe Monthly (K{{ "%.0f"|format(p.get('amount_monthly', 0)) }})
+						</button>
+						<button type="submit" formaction="{{ url_for('billing.checkout', plan=plan_key, cycle='yearly') }}" class="btn btn-amber btn-sm">
+							<i class="bi bi-calendar-check me-1"></i>Subscribe Yearly (K{{ "%.0f"|format(p.get('amount_yearly', 0)) }})
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+	{% endfor %}
+</div>
+
+<div class="card">
+	<div class="card-header">Subscription Payment History</div>
+	<div class="card-body p-0">
+		<div class="table-responsive">
+			<table class="table mb-0">
+				<thead>
+					<tr>
+						<th>Reference</th>
+						<th>Plan</th>
+						<th>Method</th>
+						<th>Amount</th>
+						<th>Status</th>
+						<th>Date</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for s in subs %}
+					<tr>
+						<td>
+							<code>{{ s.lipila_reference_id or s.stripe_subscription_id or '—' }}</code>
+							{% if s.is_sandbox_simulated %}
+							<span class="badge bg-warning text-dark ms-1">TEST</span>
+							{% endif %}
+						</td>
+						<td>{{ (s.plan or '')|title }} ({{ s.billing_cycle or 'monthly' }})</td>
+						<td>{{ (s.payment_method or 'card')|replace('_', ' ')|title }}</td>
+						<td>{{ s.currency or 'ZMW' }} {{ "%.2f"|format(s.amount or 0) }}</td>
+						<td>
+							{% if s.status in ('active', 'completed') %}
+							<span class="badge-present">{{ s.status|title }}</span>
+							{% elif s.status == 'pending' %}
+							<span class="badge bg-warning text-dark">Pending</span>
+							{% else %}
+							<span class="badge-absent">{{ (s.status or 'failed')|title }}</span>
+							{% endif %}
+						</td>
+						<td>{{ s.created_at.strftime('%d %b %Y %H:%M') if s.created_at else '—' }}</td>
+						<td>
+							{% if s.lipila_reference_id %}
+							<a href="{{ url_for('billing.payment_status', reference_id=s.lipila_reference_id) }}" class="btn btn-sm btn-outline-navy">Status</a>
+							{% endif %}
+						</td>
+					</tr>
+					{% else %}
+					<tr>
+						<td colspan="7" class="text-center text-muted py-4">No subscription transactions yet.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+{% endblock %}

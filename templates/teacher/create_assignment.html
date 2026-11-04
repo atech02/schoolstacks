@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Create Assignment{% endblock %}
+{% block page_title %}Assignments{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Create Assignment</h2>
+		<p>Set tasks for your students and review submissions</p>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-lg-5">
+		<div class="card">
+			<div class="card-header">
+				<i class="bi bi-file-earmark-text me-2"></i>Assignment Details
+			</div>
+			<div class="card-body p-4">
+				<form method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+					<div class="mb-3">
+						<label class="form-label">Title</label>
+						<input type="text" name="title" class="form-control" placeholder="Assignment title" required>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Description / Instructions</label>
+						<textarea name="description" class="form-control" rows="4" placeholder="Describe the assignment..." required></textarea>
+					</div>
+
+					<div class="row g-3 mb-3">
+						<div class="col-md-6">
+							<label class="form-label">Class</label>
+							<select name="class_id" class="form-select" required>
+								<option value="">Select class...</option>
+								{% for c in classes %}
+								<option value="{{ c.id }}">{{ c.name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+
+						<div class="col-md-6">
+							<label class="form-label">Subject</label>
+							<select name="subject_id" class="form-select" required>
+								<option value="">Select subject...</option>
+								{% for s in subjects %}
+								<option value="{{ s.id }}">{{ s.name }}</option>
+								{% endfor %}
+							</select>
+						</div>
+					</div>
+
+					<div class="mb-4">
+						<label class="form-label">Due Date</label>
+						<input type="date" name="due_date" class="form-control" required>
+					</div>
+
+					<button type="submit" class="btn btn-primary w-100">
+						<i class="bi bi-plus-circle me-2"></i>Create Assignment
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-lg-7">
+		<div class="card">
+			<div class="card-header">Created Assignments</div>
+			<div class="card-body p-0">
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<thead>
+							<tr>
+								<th>Title</th>
+								<th>Class</th>
+								<th>Subject</th>
+								<th>Due</th>
+								<th>Submissions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for a in assignments %}
+							<tr>
+								<td><strong>{{ a.title }}</strong></td>
+								<td>{{ a.school_class.name if a.school_class else '—' }}</td>
+								<td>{{ a.subject.name if a.subject else '—' }}</td>
+								<td>{{ a.deadline.strftime('%d %b %Y') if a.deadline else '—' }}</td>
+								<td>
+									<a href="{{ url_for('teacher.view_submissions', assignment_id=a.id) }}" class="btn btn-sm btn-outline-navy">
+										View
+									</a>
+								</td>
+							</tr>
+							{% else %}
+							<tr><td colspan="5" class="text-center text-muted py-4">No assignments created yet.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

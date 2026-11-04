@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Superadmin Dashboard{% endblock %}
+{% block page_title %}Platform Superadmin Overview{% endblock %}
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Platform Overview</h2>
+		<p>Multi-school SaaS usage and subscription revenue summary</p>
+	</div>
+	<a href="{{ url_for('superadmin.schools') }}" class="btn btn-primary">
+		<i class="bi bi-buildings me-1"></i>Manage Schools
+	</a>
+</div>
+
+<div class="row g-3 mb-4">
+	<div class="col-6 col-lg-3">
+		<div class="stat-card">
+			<div class="stat-icon navy"><i class="bi bi-buildings"></i></div>
+			<div>
+				<div class="stat-value">{{ total_schools }}</div>
+				<div class="stat-label">Total Schools ({{ active_schools }} active)</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-6 col-lg-3">
+		<div class="stat-card">
+			<div class="stat-icon blue"><i class="bi bi-people"></i></div>
+			<div>
+				<div class="stat-value">{{ total_students }}</div>
+				<div class="stat-label">Total Students</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-6 col-lg-3">
+		<div class="stat-card">
+			<div class="stat-icon amber"><i class="bi bi-person-badge"></i></div>
+			<div>
+				<div class="stat-value">{{ total_teachers }}</div>
+				<div class="stat-label">Total Teachers</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-6 col-lg-3">
+		<div class="stat-card">
+			<div class="stat-icon green"><i class="bi bi-cash-coin"></i></div>
+			<div>
+				<div class="stat-value">K{{ "%.0f"|format(mrr) }}</div>
+				<div class="stat-label">Est. Monthly Revenue</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row g-4">
+	<div class="col-lg-6">
+		<div class="card">
+			<div class="card-header">Recent School Signups (Last 30 Days)</div>
+			<div class="card-body p-0">
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<thead>
+							<tr>
+								<th>School</th>
+								<th>Subdomain</th>
+								<th>Plan</th>
+								<th>Action</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for s in recent_schools %}
+							<tr>
+								<td><strong>{{ s.name }}</strong></td>
+								<td><code>{{ s.subdomain }}</code></td>
+								<td><span class="badge-grade">{{ s.plan|title }}</span></td>
+								<td><a href="{{ url_for('superadmin.school_detail', school_id=s.id) }}" class="btn btn-sm btn-outline-navy">Inspect</a></td>
+							</tr>
+							{% else %}
+							<tr><td colspan="4" class="text-center text-muted py-4">No recent signups.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-lg-6">
+		<div class="card">
+			<div class="card-header">Recent Subscriptions</div>
+			<div class="card-body p-0">
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<thead>
+							<tr>
+								<th>School</th>
+								<th>Plan</th>
+								<th>Amount</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for sub in recent_subs %}
+							<tr>
+								<td>{{ sub.school.name if sub.school else '—' }}</td>
+								<td>{{ (sub.plan or '')|title }}</td>
+								<td>{{ sub.currency or 'ZMW' }} {{ "%.2f"|format(sub.amount or 0) }}</td>
+								<td><span class="badge bg-light text-dark">{{ sub.status }}</span></td>
+							</tr>
+							{% else %}
+							<tr><td colspan="4" class="text-center text-muted py-4">No subscriptions yet.</td></tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

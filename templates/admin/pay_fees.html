@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Pay Fees{% endblock %}
+{% block page_title %}Record Payment{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>Record Fee Payment</h2>
+		<p>
+		Student:
+		<strong>{{ student.first_name }} {{ student.last_name }}</strong>
+		      ({{ student.admission_no }})
+		</p>
+	</div>
+	<a href="{{ url_for('admin.students_list') }}" class="btn btn-outline-navy">
+		<i class="bi bi-arrow-left me-1"></i>Back
+	</a>
+</div>
+
+<div class="card" style="max-width:520px;">
+	<div class="card-header">
+		<i class="bi bi-cash me-2"></i>Payment Details
+	</div>
+	<div class="card-body p-4">
+		<form method="POST">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<!-- Term Select -->
+			<div class="mb-3">
+				<label class="form-label">Term</label>
+				<select name="term_id" class="form-select" required>
+					<option value="">Select term...</option>
+					{% for t in terms %}
+					<option value="{{ t.id }}">{{ t.name }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<!-- Amount Paid Input -->
+			<div class="mb-3">
+				<label class="form-label">Amount Paid (K)</label>
+				<input 
+				       type="number" 
+				       name="amount" 
+				       class="form-control" 
+				       step="0.01" 
+				       required
+				       />
+			</div>
+
+			<!-- Bank Reference Input -->
+			<div class="mb-3">
+				<label class="form-label">Bank Reference</label>
+				<input 
+				       type="text" 
+				       name="bank_reference" 
+				       class="form-control" 
+				       placeholder="Bank transaction reference" 
+				       required
+				       />
+			</div>
+
+			<!-- Payment Date Input -->
+			<div class="mb-4">
+				<label class="form-label">Payment Date</label>
+				<input 
+				       type="date" 
+				       name="payment_date" 
+				       class="form-control" 
+				       required
+				       />
+			</div>
+
+			<button type="submit" class="btn btn-primary w-100">
+				<i class="bi bi-receipt me-2"></i>Record Payment
+			</button>
+		</form>
+	</div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+	<div>
+		<h2>School Analytics</h2>
+		<p>Academic performance & attendance overview</p>
+	</div>
+</div>
+
+<!-- Stat Cards Overview Row -->
+<div class="row g-3 mb-4">
+	<!-- Students Passing -->
+	<div class="col-md-3">
+		<div class="stat-card">
+			<div class="stat-icon green">
+				<i class="bi bi-emoji-smile"></i>   
+			</div>
+			<div>
+				<div class="stat-value">{{ pass_count }}</div>
+				<div class="stat-label">Students Passing</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Students Failing -->
+	<div class="col-md-3">
+		<div class="stat-card">
+			<div class="stat-icon" style="background:rgba(239,68,68,.1);color:#ef4444;">
+				<i class="bi bi-emoji-frown"></i>
+			</div>
+			<div>
+				<div class="stat-value">{{ fail_count }}</div>
+				<div class="stat-label">Students Failing</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Total Present -->
+	<div class="col-md-3">
+		<div class="stat-card">
+			<div class="stat-icon blue">
+				<i class="bi bi-calendar-check"></i>
+			</div>
+			<div>
+				<div class="stat-value">{{ present }}</div>
+				<div class="stat-label">Total Present</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Total Absent -->
+	<div class="col-md-3">
+		<div class="stat-card">
+			<div class="stat-icon amber">
+				<i class="bi bi-calendar-x"></i>    
+			</div>
+			<div> 
+				<div class="stat-value">{{ absent }}</div>
+				<div class="stat-label">Total Absent</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4">
+	<!-- Subject Average Marks Chart -->
+	<div class="col-md-7">
+		<div class="card">
+			<div class="card-header">Subject Average Marks</div>
+			<div class="card-body">
+				<canvas id="subjectChart" height="250"></canvas>
+			</div>
+		</div>
+	</div>
+
+	<!-- Pass / Fail Rate Chart -->
+	<div class="col-md-5">
+		<div class="card">
+			<div class="card-header">Pass / Fail Rate</div>
+			<div class="card-body d-flex align-items-center justify-content-center">
+				<canvas id="passFailChart" height="250"></canvas>
+			</div>
+		</div>
+	</div>
+
+	<!-- Attendance Overview Chart -->
+	<div class="col-md-5">
+		<div class="card">
+			<div class="card-header">Attendance Overview</div>
+			<div class="card-body d-flex align-items-center justify-content-center">
+				<canvas id="attendanceChart" height="230"></canvas>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+	const navy = '#0f1f3d', amber = '#f59e0b', green = '#10b981', red = '#ef4444', blue = '#3b82f6';
+
+// Subject Average Bar Chart
+new Chart(document.getElementById('subjectChart'), {
+	type: 'bar',
+	data: {
+		labels: {{ subject_names | tojson }},
+		datasets: [{
+			label: 'Average Marks',
+		        data: {{ subject_averages | tojson }},
+		        backgroundColor: amber,
+		        borderRadius: 6,
+		}]
+	},
+	options: {
+		plugins: { legend: { display: false } },
+		scales: {
+			y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' } },
+			x: { grid: { display: false } }
+		}
+	}
+});
+
+// Pass/Fail Doughnut Chart
+new Chart(document.getElementById('passFailChart'), {
+	type: 'doughnut',
+	data: {
+		labels: ['Passing', 'Failing'],
+		datasets: [{
+			data: [{{ pass_count }}, {{ fail_count }}],
+		        backgroundColor: [green, red],
+		        borderWidth: 0
+		}]
+	},
+	options: {
+		plugins: { legend: { position: 'bottom' } },
+		cutout: '65%'
+	}
+});
+
+// Attendance Doughnut Chart
+new Chart(document.getElementById('attendanceChart'), {
+	type: 'doughnut',
+	data: {
+		labels: ['Present', 'Absent'],
+		datasets: [{
+			data: [{{ present }}, {{ absent }}],
+			backgroundColor: [blue, amber],
+			borderWidth: 0
+		}]
+	},
+	options: {
+		plugins: { legend: { position: 'bottom' } },
+		cutout: '65%'
+	}
+});
+</script>
+{% endblock %}
