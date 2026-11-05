@@ -225,6 +225,30 @@ export const AppLayout: React.FC<{
         </header>
 
         <main className="edu-content">
+          {user?.must_change_password && (
+            <div
+              className="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 p-3 rounded-3"
+              role="alert"
+              style={{
+                border: '1.5px solid var(--color-mustard)',
+                background: 'rgba(255, 184, 0, 0.12)',
+              }}
+            >
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-shield-exclamation text-warning fs-5" aria-hidden="true" />
+                <span className="small text-dark">
+                  <strong>Security Notice:</strong> You are currently using a temporary bootstrap password. Please update your password to secure this account.
+                </span>
+              </div>
+              <button
+                type="button"
+                className="edu-btn edu-btn-accent edu-btn-sm"
+                onClick={() => navigate('/change-password')}
+              >
+                Change Password Now
+              </button>
+            </div>
+          )}
           {(subtitle || actions) && (
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
               {subtitle ? (

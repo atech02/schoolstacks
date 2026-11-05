@@ -194,20 +194,48 @@ def create_app(config_class=Config):
     return app
 
 
+logger = logging.getLogger(__name__)
+
+
 def _create_superadmin(app):
-    sa_email = app.config["SUPERADMIN_EMAIL"]
-    if not User.query.filter_by(role="superadmin").first():
-        password = os.environ.get("ADMIN_PASSWORD", "SuperAdmin123!")
-        sa = User(
-            school_id=None,
-            username="superadmin",
-            email=sa_email,
-            password_hash=generate_password_hash(password),
-            role="superadmin",
-            is_verified=True,
-        )
-        db.session.add(sa)
-        db.session.commit()
+    """
+    Secure bootstrap for the initial Platform Super Administrator account.
+    - Idempotent: Does not overwrite or recreate if a superadmin account already exists.
+    - Secure: Reads initial email and password strictly from server-side environment variables.
+    - Password is never stored in plain text; hashed using werkzeug generate_password_hash.
+    - Initial superadmin is flagged with must_change_password=True to require a password update on first login.
+    - In production, if SUPERADMIN_PASSWORD (or legacy ADMIN_PASSWORD) is missing, account creation
+      is skipped with explicit setup instructions rather than creating an insecure default account.
+    """
+    if User.query.filter_by(role="superadmin").first():
+        return
+
+    sa_email = os.environ.get("SUPERADMIN_EMAIL") or app.config.get("SUPERADMIN_EMAIL") or "superadmin@edumanage.zm"
+    sa_password = os.environ.get("SUPERADMIN_PASSWORD") or os.environ.get("ADMIN_PASSWORD")
+
+    if not sa_password:
+        if app.config.get("TESTING"):
+            sa_password = "SuperAdmin123!"
+        else:
+            logger.warning(
+                "[SETUP REQUIRED] SUPERADMIN_PASSWORD environment variable is not configured. "
+                "Initial Super Administrator bootstrap was safely skipped. "
+                "To bootstrap the superadmin account, configure SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD in your Vercel or server environment."
+            )
+            return
+
+    sa = User(
+        school_id=None,
+        username="superadmin",
+        email=sa_email,
+        password_hash=generate_password_hash(sa_password),
+        role="superadmin",
+        is_verified=True,
+        must_change_password=True,
+    )
+    db.session.add(sa)
+    db.session.commit()
+    logger.info("[SECURITY] Initial Super Administrator account '%s' created with must_change_password requirement.", sa_email)
 
 
 def _start_scheduler(app):

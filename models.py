@@ -114,6 +114,7 @@ class User(db.Model, UserMixin):
     is_verified   = db.Column(db.Boolean, default=False)
     created_at    = db.Column(db.DateTime, default=utc_now)
     last_login_at = db.Column(db.DateTime, index=True)
+    must_change_password = db.Column(db.Boolean, default=False)
 
     __table_args__ = (
         db.UniqueConstraint("school_id", "username", name="uq_school_username"),

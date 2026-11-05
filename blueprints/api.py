@@ -131,6 +131,7 @@ def _serialize_user(user: User | None):
         "school_id": user.school_id,
         "student_id": user.student_id,
         "is_verified": user.is_verified,
+        "must_change_password": bool(getattr(user, "must_change_password", False)),
     }
 
 
@@ -325,6 +326,7 @@ def api_change_password():
         return jsonify({"error": "New password must be at least 8 characters."}), 400
 
     current_user.set_password(new_pw)
+    current_user.must_change_password = False
     db.session.commit()
     return jsonify({"message": "Password changed successfully."})
 

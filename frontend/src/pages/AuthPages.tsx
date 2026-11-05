@@ -40,12 +40,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillDemo = (demoRole: string, demoUser: string, demoPass: string, sub = 'lusakahigh') => {
-    setSchoolSubdomain(sub);
-    setUsername(demoUser);
-    setPassword(demoPass);
-  };
-
   return (
     <div className="min-vh-100 d-flex flex-column flex-lg-row" style={{ background: 'var(--color-cool-gray)' }}>
       {/* Left Welcome Panel with ShaderGradient (#002583, #FFB800, #E5E8EF) */}
@@ -116,7 +110,7 @@ export const LoginPage: React.FC = () => {
               <input
                 type="text"
                 className="edu-input"
-                placeholder="e.g. admin, LH001, ST1001, superadmin"
+                placeholder="Enter your username, admission no, or staff ID"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -142,60 +136,6 @@ export const LoginPage: React.FC = () => {
               {submitting ? 'Signing in...' : 'Sign In to Portal'}
             </Button>
           </form>
-
-          {/* One-Click Demo Credentials Helper for Local Testing */}
-          <div
-            className="mt-4 p-3 rounded-3"
-            style={{
-              background: 'var(--color-cool-gray)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div
-              className="small fw-bold mb-2"
-              style={{ color: 'var(--color-strong-blue)', fontSize: '0.75rem' }}
-            >
-              <i className="bi bi-lightning-charge-fill me-1" style={{ color: 'var(--color-mustard)' }} />
-              QUICK FILL DEMO ACCOUNTS (LUSAKA HIGH)
-            </div>
-            <div className="d-flex flex-wrap gap-1">
-              <button
-                type="button"
-                className="edu-btn edu-btn-outline edu-btn-sm"
-                onClick={() => fillDemo('admin', 'admin', 'Admin1234', 'lusakahigh')}
-              >
-                School Admin
-              </button>
-              <button
-                type="button"
-                className="edu-btn edu-btn-outline edu-btn-sm"
-                onClick={() => fillDemo('parent', 'parent_chanda', 'Parent1234', 'lusakahigh')}
-              >
-                Parent
-              </button>
-              <button
-                type="button"
-                className="edu-btn edu-btn-outline edu-btn-sm"
-                onClick={() => fillDemo('student', 'LH001', 'Student1234', 'lusakahigh')}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                className="edu-btn edu-btn-outline edu-btn-sm"
-                onClick={() => fillDemo('teacher', 'ST1001', 'Teacher1234', 'lusakahigh')}
-              >
-                Teacher
-              </button>
-              <button
-                type="button"
-                className="edu-btn edu-btn-accent edu-btn-sm"
-                onClick={() => fillDemo('superadmin', 'superadmin', 'SuperAdmin123!', '')}
-              >
-                Superadmin
-              </button>
-            </div>
-          </div>
 
           <div className="text-center mt-4 small text-muted">
             Need a new school workspace?{' '}

@@ -4,6 +4,7 @@ import { ShaderGradientHero } from '../components/ShaderGradientHero';
 import { useAuth } from '../hooks/useAuth';
 import { Badge } from '../components/ui';
 import { BrandLogo } from '../components/BrandLogo';
+import { Footer } from '../components/Footer';
 
 export const LandingPage: React.FC = () => {
   const { authenticated, user, pricing } = useAuth();
@@ -90,38 +91,47 @@ export const LandingPage: React.FC = () => {
         </nav>
       </header>
 
-      {/* Hero Section — 3-Layer Composition: Base Strong Blue + ShaderGradient + Blended heropic.png */}
-      <section
-        className="shadergradient-hero-stage"
-        style={{
-          padding: '140px 5% 96px',
-          minHeight: 640,
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <ShaderGradientHero
-          color1="#002583"
-          color2="#FFB800"
-          color3="#E5E8EF"
-          uSpeed={0.14}
-          uStrength={1.32}
-          uDensity={1.12}
-          uFrequency={3.1}
-          uAmplitude={1.75}
-          brightness={1.06}
-          pixelDensity={1.0}
-          fov={45}
-          animate="on"
-          grain="on"
-        />
-        <div className="hero-readability-scrim" aria-hidden="true" />
+      {/* Hero Section — Full-Width Hero Background with Multi-Layer Gradient Overlay & Left-Aligned Content */}
+      <section className="hero-fullscreen-stage" aria-labelledby="hero-heading">
+        {/* Layer 1: Ambient Restrained ShaderGradient behind the image for organic brand color motion */}
+        <div className="hero-ambient-shader" aria-hidden="true">
+          <ShaderGradientHero
+            color1="#002583"
+            color2="#FFB800"
+            color3="#E5E8EF"
+            uSpeed={0.10}
+            uStrength={1.15}
+            uDensity={1.05}
+            uFrequency={2.8}
+            uAmplitude={1.5}
+            brightness={0.98}
+            pixelDensity={1.0}
+            fov={45}
+            animate="on"
+            grain="on"
+          />
+        </div>
 
-        <div className="container" style={{ position: 'relative', zIndex: 3 }}>
-          <div className="row align-items-center g-4 g-lg-5">
-            <div className="col-lg-6 hero-content-column">
+        {/* Layer 2: Full-Width Background Image */}
+        <div className="hero-bg-media-container" aria-hidden="true">
+          <img
+            src="/images/heropic.png"
+            alt="Students collaborating on digital learning tablets in uniform"
+            className="hero-bg-fullscreen-img"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+
+        {/* Layer 3: Multi-Layer Cinematic Gradient Overlay */}
+        <div className="hero-cinematic-overlay hero-readability-scrim" aria-hidden="true" />
+
+        {/* Layer 4: Left-Aligned Hero Content */}
+        <div className="container" style={{ position: 'relative', zIndex: 10 }}>
+          <div className="row">
+            <div className="col-12 col-lg-8 col-xl-7 hero-content-column">
               <div
-                className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3 text-uppercase"
+                className="hero-anim-eyebrow d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3 text-uppercase"
                 style={{
                   background: 'rgba(255, 184, 0, 0.16)',
                   border: '1px solid rgba(255, 184, 0, 0.48)',
@@ -129,27 +139,21 @@ export const LandingPage: React.FC = () => {
                   fontSize: 'var(--font-size-xs)',
                   fontWeight: 'var(--font-weight-semibold)',
                   letterSpacing: '0.08em',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
                 }}
               >
                 <i className="bi bi-stars" /> Built for Zambian &amp; African Schools
               </div>
 
-              <h1 className="edu-hero-heading mb-3" style={{ textShadow: '0 2px 18px rgba(0, 24, 88, 0.5)' }}>
+              <h1 id="hero-heading" className="edu-hero-heading hero-anim-heading mb-3">
                 Run Your Entire School{' '}
-                <span style={{ color: 'var(--color-mustard)', display: 'block' }}>
+                <span className="hero-highlight">
                   From One Unified Platform
                 </span>
               </h1>
 
-              <p
-                style={{
-                  color: 'var(--color-cool-gray)',
-                  fontSize: 'var(--font-size-base)',
-                  lineHeight: 1.6,
-                  maxWidth: 560,
-                  marginBottom: 28,
-                }}
-              >
+              <p className="hero-description-text hero-anim-description mb-4">
                 Manage admissions, class timetables, attendance, and automated report cards while
                 collecting school fees online in ZMW via{' '}
                 <strong className="text-white">
@@ -158,32 +162,24 @@ export const LandingPage: React.FC = () => {
                 .
               </p>
 
-              <div className="d-flex align-items-center gap-3 flex-wrap">
+              <div className="hero-anim-actions d-flex align-items-center gap-3 flex-wrap">
                 <Link
                   to={authenticated ? portalHref() : '/register'}
-                  className="edu-btn edu-btn-accent"
-                  style={{ padding: '10px 22px', fontSize: 'var(--font-size-sm)' }}
+                  className="hero-btn-primary"
                 >
                   {authenticated ? 'Go to Your Dashboard' : 'Register Your School'}
                   <i className="bi bi-arrow-right" />
                 </Link>
                 <Link
                   to="/login"
-                  className="edu-btn"
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: 'var(--font-size-sm)',
-                    background: 'rgba(229, 232, 239, 0.14)',
-                    color: '#FFFFFF',
-                    border: '1.5px solid rgba(229, 232, 239, 0.38)',
-                  }}
+                  className="hero-btn-secondary"
                 >
                   <i className="bi bi-box-arrow-in-right" /> Portal Sign In
                 </Link>
               </div>
 
               <div
-                className="d-flex align-items-center gap-4 flex-wrap mt-4 pt-1"
+                className="hero-anim-trust d-flex align-items-center gap-4 flex-wrap mt-4 pt-1"
                 style={{ color: 'var(--color-cool-gray)', fontSize: 'var(--font-size-xs)' }}
               >
                 <span>
@@ -200,74 +196,125 @@ export const LandingPage: React.FC = () => {
                 </span>
               </div>
             </div>
-
-            <div className="col-lg-6">
-              <div className="hero-image-stage">
-                <div className="hero-image-aura" aria-hidden="true" />
-                <div className="hero-image-float-wrap">
-                  <div className="hero-image-blend-mask">
-                    <img
-                      src="/images/heropic.png"
-                      alt="Students collaborating on digital learning tablets in uniform"
-                      className="hero-blended-photo"
-                      loading="eager"
-                      decoding="async"
-                    />
-                    <div className="hero-image-edge-blend" aria-hidden="true" />
-                    <div className="hero-image-color-harmonizer" aria-hidden="true" />
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section — Cool Light Gray (#E5E8EF) surface */}
-      <section id="features" className="py-5 px-3" style={{ background: 'var(--color-cool-gray)' }}>
-        <div className="container py-4">
+      {/* Features Section — Premium Two-Column Layout (#E5E8EF Surface) */}
+      <section id="features" className="features-two-col-section px-3" aria-labelledby="features-heading">
+        <div className="container">
           <div className="text-center mb-5">
-            <Badge variant="mustard">UNIFIED SCHOOL PLATFORM</Badge>
-            <h2 className="fw-bold mt-2">Dedicated Portals for Every Role</h2>
+            <Badge variant="mustard">KEY PLATFORM CAPABILITIES</Badge>
+            <h2 id="features-heading" className="fw-bold mt-2" style={{ color: 'var(--color-strong-blue)', fontSize: '2.25rem' }}>
+              Everything Your School Needs in One Place
+            </h2>
             <p className="text-muted mx-auto" style={{ maxWidth: 620 }}>
-              Designed with a clean, high-contrast interface across desktop, tablet, and installable
-              mobile PWA.
+              Purpose-built for modern educational institutions across Zambia and Africa with seamless fee collections, instant communication, and centralized management.
             </p>
           </div>
 
-          <div className="row g-4">
-            {[
-              {
-                icon: 'bi-building-check',
-                title: 'School Administration',
-                desc: 'Register students & teachers, configure classes, subjects, terms, fee structures, timetables, and school-wide announcements.',
-              },
-              {
-                icon: 'bi-phone-vibrate',
-                title: 'Mobile Money & Card Payments',
-                desc: 'Parents and students pay school fees online in ZMW using supported mobile money services (MTN, Airtel, Zamtel) or debit/credit cards with instant RCT-xxxxx receipts.',
-              },
-              {
-                icon: 'bi-journal-check',
-                title: 'Teacher & Academic Suite',
-                desc: 'Mark daily class attendance, enter exam scores with automatic ECZ grading, upload study materials, and grade assignments.',
-              },
-              {
-                icon: 'bi-people-fill',
-                title: 'Parent & Student Portals',
-                desc: 'Track real-time attendance, download official term report cards, submit homework, and clear fee balances from any phone.',
-              },
-            ].map((f, i) => (
-              <div className="col-md-6 col-lg-3" key={i}>
-                <div className="edu-card h-100 p-4">
-                  <div className="edu-stat-icon mustard mb-3">
-                    <i className={`bi ${f.icon}`} />
+          <div className="row align-items-center g-4 g-lg-5">
+            {/* Left Column — Large Feature Image */}
+            <div className="col-12 col-lg-6 order-1 order-lg-1">
+              <div className="feature-image-wrapper">
+                <img
+                  src="/images/feature.png"
+                  alt="School-Magi feature platform preview"
+                  className="feature-preview-img"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </div>
+
+            {/* Right Column — 3 Vertically Arranged Feature Information Blocks */}
+            <div className="col-12 col-lg-6 order-2 order-lg-2">
+              <div className="features-list-wrapper">
+                {/* FEATURE 1 */}
+                <div className="feature-block-card">
+                  <div className="feature-icon-badge" aria-hidden="true">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="26"
+                      height="26"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect width="20" height="14" x="2" y="5" rx="2" />
+                      <line x1="2" x2="22" y1="10" y2="10" />
+                    </svg>
                   </div>
-                  <h5 className="fw-bold mb-2">{f.title}</h5>
-                  <p className="small text-muted mb-0">{f.desc}</p>
+                  <div>
+                    <h3 className="feature-block-title">Seamless Mobile Payments</h3>
+                    <p className="feature-block-desc">
+                      Accept mobile money and card payments conveniently.
+                    </p>
+                  </div>
+                </div>
+
+                {/* FEATURE 2 */}
+                <div className="feature-block-card">
+                  <div className="feature-icon-badge" aria-hidden="true">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="26"
+                      height="26"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                      <path d="M8 12h.01" />
+                      <path d="M12 12h.01" />
+                      <path d="M16 12h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="feature-block-title">Instant SMS Communication</h3>
+                    <p className="feature-block-desc">
+                      Keep parents and guardians informed with timely updates.
+                    </p>
+                  </div>
+                </div>
+
+                {/* FEATURE 3 */}
+                <div className="feature-block-card">
+                  <div className="feature-icon-badge" aria-hidden="true">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="26"
+                      height="26"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m4 6 8-4 8 4" />
+                      <path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2" />
+                      <path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4" />
+                      <path d="M18 5v17" />
+                      <path d="M6 5v17" />
+                      <circle cx="12" cy="9" r="2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="feature-block-title">Centralized School Administration</h3>
+                    <p className="feature-block-desc">
+                      Everything your school needs in one platform.
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
@@ -341,23 +388,8 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer — Strong Blue (#002583) with Brand Logo, Slogan & Mustard Gold border */}
-      <footer
-        className="py-4 text-white small"
-        style={{
-          background: 'var(--color-strong-blue)',
-          borderTop: '3px solid var(--color-mustard)',
-        }}
-      >
-        <div className="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <BrandLogo showSlogan={true} theme="light" size="sm" />
-          </div>
-          <div style={{ color: 'var(--color-cool-gray)', fontSize: 'var(--font-size-xs)' }}>
-            Multi-Tenant School Management Platform &bull; Secure Online Payments &bull; Web &amp; Installable PWA
-          </div>
-        </div>
-      </footer>
+      {/* Comprehensive Website Footer */}
+      <Footer />
     </div>
   );
 };

@@ -101,6 +101,9 @@ def login():
                 commit=True,
             )
             login_user(user)
+            if getattr(user, "must_change_password", False):
+                flash("Initial setup: Please change your temporary password to continue.", "warning")
+                return redirect(url_for("auth.change_password"))
             role_redirects = {
                 "superadmin": "superadmin.dashboard",
                 "admin":      "admin.dashboard",
@@ -148,8 +151,17 @@ def change_password():
             return redirect(url_for("auth.change_password"))
 
         current_user.set_password(new_pw)
+        current_user.must_change_password = False
         db.session.commit()
         flash("Password changed successfully", "success")
-        return redirect(url_for("auth.index"))
+        role_redirects = {
+            "superadmin": "superadmin.dashboard",
+            "admin":      "admin.dashboard",
+            "student":    "student.dashboard",
+            "teacher":    "teacher.dashboard",
+            "parent":     "parent.dashboard",
+        }
+        dest = role_redirects.get(current_user.role, "auth.index")
+        return redirect(url_for(dest))
 
     return render_template("change_password.html")

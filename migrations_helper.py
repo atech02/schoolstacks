@@ -19,6 +19,7 @@ REQUIRED_COLUMNS = {
     ],
     "users": [
         ("last_login_at", "TIMESTAMP"),
+        ("must_change_password", "BOOLEAN DEFAULT FALSE"),
     ],
     "subscriptions": [
         ("lipila_reference_id", "VARCHAR(100)"),
