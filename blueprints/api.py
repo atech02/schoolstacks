@@ -49,6 +49,8 @@ from utils import (
     allowed_file,
     check_plan_limit,
     record_activity,
+    find_user_for_login,
+    handle_superadmin_recovery,
 )
 from services.lipila import LipilaClient, LipilaError, normalize_zambia_phone
 from blueprints.billing import (
@@ -236,27 +238,17 @@ def api_login():
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
 
-    schools = School.query.filter_by(is_active=True).order_by(School.name.asc()).all()
     target_school = getattr(g, "school", None)
     if school_subdomain:
         target_school = School.query.filter_by(
             subdomain=school_subdomain
         ).first()
 
-    user = None
-    if target_school:
-        user = User.query.filter_by(
-            school_id=target_school.id, username=username
-        ).first()
-
-    if not user and username == "superadmin":
-        user = User.query.filter_by(username="superadmin", role="superadmin").first()
-
-    if not user and not target_school and len(schools) == 1:
-        target_school = schools[0]
-        user = User.query.filter_by(
-            school_id=target_school.id, username=username
-        ).first()
+    user = find_user_for_login(
+        identifier=username,
+        school_subdomain=school_subdomain,
+        target_school=target_school,
+    )
 
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid username, school selection, or password."}), 401
@@ -329,6 +321,14 @@ def api_change_password():
     current_user.must_change_password = False
     db.session.commit()
     return jsonify({"message": "Password changed successfully."})
+
+
+@api.route("/auth/superadmin/recover", methods=["POST"])
+def api_superadmin_recover():
+    data = request.get_json(silent=True) or (request.form.to_dict() if request.form else {})
+    header_token = request.headers.get("X-Recovery-Token")
+    result, code = handle_superadmin_recovery(data=data, header_token=header_token)
+    return jsonify(result), code
 
 
 @api.route("/onboarding/register", methods=["POST"])

@@ -106,11 +106,11 @@ export const LoginPage: React.FC = () => {
               </select>
             </FormField>
 
-            <FormField label="Username / Admission No / Staff No">
+            <FormField label="Email, Username, or Staff/Admission ID">
               <input
                 type="text"
                 className="edu-input"
-                placeholder="Enter your username, admission no, or staff ID"
+                placeholder="Enter your email, username, or staff/student ID"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required

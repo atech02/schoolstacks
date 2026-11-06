@@ -2,12 +2,12 @@
 blueprints/auth.py — Login, logout, password change, and shared-domain school context
 """
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from models import db, User, School, utc_now
 from extensions import limiter
-from utils import record_activity
+from utils import record_activity, find_user_for_login, handle_superadmin_recovery
 
 auth = Blueprint("auth", __name__)
 
@@ -52,22 +52,11 @@ def login():
                 subdomain=school_subdomain, is_active=True
             ).first()
 
-        user = None
-        if target_school:
-            user = User.query.filter_by(
-                school_id=target_school.id, username=username
-            ).first()
-
-        # Platform superadmin fallback when logging in without a school selected
-        if not user and username == "superadmin":
-            user = User.query.filter_by(username="superadmin", role="superadmin").first()
-
-        # Single-school convenience fallback if only one active school exists and no school was specified
-        if not user and not target_school and len(schools) == 1:
-            target_school = schools[0]
-            user = User.query.filter_by(
-                school_id=target_school.id, username=username
-            ).first()
+        user = find_user_for_login(
+            identifier=username,
+            school_subdomain=school_subdomain,
+            target_school=target_school,
+        )
 
         if user and check_password_hash(user.password_hash, password):
             if user.school_id:
@@ -165,3 +154,12 @@ def change_password():
         return redirect(url_for(dest))
 
     return render_template("change_password.html")
+
+
+@auth.route("/superadmin/recover", methods=["POST"])
+@limiter.limit("5 per hour")
+def superadmin_recover():
+    data = request.get_json(silent=True) or (request.form.to_dict() if request.form else {})
+    header_token = request.headers.get("X-Recovery-Token")
+    result, code = handle_superadmin_recovery(data=data, header_token=header_token)
+    return jsonify(result), code

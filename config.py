@@ -52,11 +52,16 @@ class Config:
         "pool_pre_ping": True,
         "pool_recycle": 300,
     }
+    if SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+            "connect_timeout": 15,
+        }
 
     # ── Multi-tenant & Domain ──────────────────────────────────────
     BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost")
     APP_PROTOCOL = os.environ.get("APP_PROTOCOL", "https" if IS_PRODUCTION else "http")
     SUPERADMIN_EMAIL = os.environ.get("SUPERADMIN_EMAIL", "superadmin@edumanage.zm")
+    SUPERADMIN_RECOVERY_TOKEN = os.environ.get("SUPERADMIN_RECOVERY_TOKEN", "").strip()
 
     # ── Uploads ────────────────────────────────────────────────────
     _upload_base = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(BASE_DIR, "uploads")

@@ -202,15 +202,27 @@ def _create_superadmin(app):
     Secure bootstrap for the initial Platform Super Administrator account.
     - Idempotent: Does not overwrite or recreate if a superadmin account already exists.
     - Secure: Reads initial email and password strictly from server-side environment variables.
+    - Email is normalized to lowercase and trimmed.
     - Password is never stored in plain text; hashed using werkzeug generate_password_hash.
     - Initial superadmin is flagged with must_change_password=True to require a password update on first login.
     - In production, if SUPERADMIN_PASSWORD (or legacy ADMIN_PASSWORD) is missing, account creation
       is skipped with explicit setup instructions rather than creating an insecure default account.
     """
-    if User.query.filter_by(role="superadmin").first():
+    sa_email = (
+        os.environ.get("SUPERADMIN_EMAIL")
+        or app.config.get("SUPERADMIN_EMAIL")
+        or "superadmin@edumanage.zm"
+    ).strip().lower()
+
+    existing_sa = User.query.filter_by(role="superadmin").first()
+    if existing_sa:
+        # Preserve existing account and never overwrite password automatically on startup.
+        # Safely populate normalized email if previously unset.
+        if not existing_sa.email and sa_email:
+            existing_sa.email = sa_email
+            db.session.commit()
         return
 
-    sa_email = os.environ.get("SUPERADMIN_EMAIL") or app.config.get("SUPERADMIN_EMAIL") or "superadmin@edumanage.zm"
     sa_password = os.environ.get("SUPERADMIN_PASSWORD") or os.environ.get("ADMIN_PASSWORD")
 
     if not sa_password:
