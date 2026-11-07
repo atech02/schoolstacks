@@ -25,12 +25,14 @@ from models import (
     SchoolClass,
     Subject,
     TeacherAssignment,
+    AcademicYear,
     Term,
     Exam,
     Result,
     FeeStructure,
     Payment,
     Attendance,
+    SubjectAttendance,
     Timetable,
     Announcement,
     Notification,
@@ -38,6 +40,13 @@ from models import (
     Assignment,
     Submission,
     ActivityLog,
+    ClassTeacherAllocation,
+    SubstituteAllocation,
+    SMSSettings,
+    SMSMessage,
+    SMSDeliveryEvent,
+    ParentCommunicationLog,
+    AbsenteeismIntervention,
     utc_now,
 )
 from utils import (
@@ -53,6 +62,7 @@ from utils import (
     handle_superadmin_recovery,
 )
 from services.lipila import LipilaClient, LipilaError, normalize_zambia_phone
+from services.sms_service import send_school_sms, normalize_phone_number, SMSToClient
 from blueprints.billing import (
     _authorize_student_fee_access,
     _settle_subscription,
@@ -462,10 +472,19 @@ def api_admin_overview():
     all_results = Result.query.filter_by(school_id=school_id).all()
     pass_count = sum(1 for r in all_results if r.marks >= 50)
     fail_count = sum(1 for r in all_results if r.marks < 50)
+    pending_results_count = sum(1 for r in all_results if getattr(r, "status", None) == "submitted")
 
     attendance_all = Attendance.query.filter_by(school_id=school_id).all()
-    present_count = sum(1 for a in attendance_all if a.status == "Present")
-    absent_count = sum(1 for a in attendance_all if a.status == "Absent")
+    present_count = sum(1 for a in attendance_all if a.status in ("Present", "Late"))
+    absent_count = sum(1 for a in attendance_all if a.status in ("Absent", "Sick", "Excused"))
+
+    # Today's attendance analytics & absent students list
+    today_date = datetime.date.today()
+    today_attendance = Attendance.query.filter_by(school_id=school_id, date=today_date).all()
+    today_present = sum(1 for a in today_attendance if a.status in ("Present", "Late"))
+    today_absent = sum(1 for a in today_attendance if a.status in ("Absent", "Sick", "Excused"))
+    today_marked = len(today_attendance)
+    today_rate = round((today_present / today_marked) * 100, 1) if today_marked > 0 else 0.0
 
     active_term = terms[0] if terms else None
     class_map = {c.id: c.name for c in classes}
@@ -474,6 +493,44 @@ def api_admin_overview():
     teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
     student_map = {s.id: f"{s.first_name} {s.last_name} ({s.admission_no})" for s in students}
     parent_map = {p.id: p.phone for p in Parent.query.filter_by(school_id=school_id).all()}
+    student_lookup = {s.id: s for s in students}
+
+    absent_today_students = []
+    for a in today_attendance:
+        if a.status in ("Absent", "Sick", "Excused"):
+            s_obj = student_lookup.get(a.student_id)
+            if s_obj:
+                absent_today_students.append({
+                    "id": s_obj.id,
+                    "admission_no": s_obj.admission_no,
+                    "name": f"{s_obj.first_name} {s_obj.last_name}",
+                    "class_name": class_map.get(s_obj.class_id, "—"),
+                    "status": a.status,
+                    "remarks": getattr(a, "remarks", "") or "",
+                    "guardian_phone": parent_map.get(s_obj.parent_id, "No contact on file"),
+                })
+
+    # Outstanding fee balances for current active term
+    total_outstanding_zmw = 0.0
+    if active_term:
+        for s in students:
+            bal = calculate_balance(s.id, active_term.id, school_id)
+            if bal > 0:
+                total_outstanding_zmw += bal
+    total_outstanding_zmw = round(total_outstanding_zmw, 2)
+
+    current_school_rec = db.session.get(School, school_id)
+    school_profile = {
+        "id": current_school_rec.id,
+        "name": current_school_rec.name,
+        "subdomain": current_school_rec.subdomain,
+        "email": current_school_rec.email,
+        "phone": current_school_rec.phone or "",
+        "address": current_school_rec.address or "",
+        "logo_url": current_school_rec.logo_url or "",
+        "currency": getattr(current_school_rec, "currency", "ZMW") or "ZMW",
+        "plan": current_school_rec.plan,
+    }
 
     return jsonify({
         "metrics": {
@@ -483,11 +540,19 @@ def api_admin_overview():
             "total_classes": len(classes),
             "total_subjects": len(subjects),
             "total_collected_zmw": round(float(total_collected), 2),
+            "total_outstanding_zmw": total_outstanding_zmw,
             "pass_count": pass_count,
             "fail_count": fail_count,
             "present_count": present_count,
             "absent_count": absent_count,
+            "today_present": today_present,
+            "today_absent": today_absent,
+            "today_marked": today_marked,
+            "today_rate": today_rate,
+            "pending_results_count": pending_results_count,
         },
+        "absent_today": absent_today_students,
+        "school": school_profile,
         "classes": [
             {
                 "id": c.id,
@@ -2411,6 +2476,94 @@ def api_teacher_overview():
     class_map = {c.id: c.name for c in all_classes}
     subj_map = {s.id: s.name for s in all_subjects}
 
+    today_date = datetime.date.today()
+    assigned_class_info = None
+
+    if teacher_rec:
+        active_alloc = ClassTeacherAllocation.query.filter_by(
+            school_id=school_id, teacher_id=teacher_rec.id, status="active"
+        ).first()
+
+        assigned_class_obj = None
+        is_substitute = False
+        sub_reason = None
+
+        if active_alloc:
+            assigned_class_obj = db.session.get(SchoolClass, active_alloc.class_id)
+
+        if not assigned_class_obj:
+            assigned_class_obj = SchoolClass.query.filter_by(
+                school_id=school_id, class_teacher_id=teacher_rec.id, is_active=True
+            ).first()
+
+        sub_alloc = SubstituteAllocation.query.filter(
+            SubstituteAllocation.school_id == school_id,
+            SubstituteAllocation.substitute_teacher_id == teacher_rec.id,
+            SubstituteAllocation.is_active.is_(True),
+            SubstituteAllocation.start_date <= today_date,
+            SubstituteAllocation.end_date >= today_date,
+        ).first()
+
+        if sub_alloc and not assigned_class_obj:
+            assigned_class_obj = db.session.get(SchoolClass, sub_alloc.class_id)
+            is_substitute = True
+            sub_reason = sub_alloc.reason
+
+        if assigned_class_obj:
+            c_students = Student.query.filter_by(
+                school_id=school_id, class_id=assigned_class_obj.id, status="active"
+            ).all()
+            total_students_c = len(c_students)
+            boys_count = sum(1 for s in c_students if (s.gender or "").lower() == "male")
+            girls_count = sum(1 for s in c_students if (s.gender or "").lower() == "female")
+
+            today_att = Attendance.query.filter_by(
+                school_id=school_id, class_id=assigned_class_obj.id, date=today_date
+            ).all()
+            att_marked = len(today_att) > 0
+            att_status = "submitted" if att_marked else "not_started"
+            first_att = today_att[0] if att_marked else None
+            submitted_at = first_att.updated_at.isoformat() if (first_att and first_att.updated_at) else None
+
+            pres_c = sum(1 for a in today_att if a.status in ("Present", "Late"))
+            abs_c = sum(1 for a in today_att if a.status in ("Absent", "Sick"))
+            late_c = sum(1 for a in today_att if a.status == "Late")
+            exc_c = sum(1 for a in today_att if a.status == "Excused")
+
+            c_timetables = Timetable.query.filter_by(
+                school_id=school_id, class_id=assigned_class_obj.id, is_active=True
+            ).order_by(Timetable.start_time.asc()).all()
+
+            assigned_class_info = {
+                "id": assigned_class_obj.id,
+                "name": assigned_class_obj.name,
+                "grade_level": getattr(assigned_class_obj, "grade_level", None) or getattr(assigned_class_obj, "grade", None) or assigned_class_obj.name,
+                "section": getattr(assigned_class_obj, "section", None) or "",
+                "is_substitute": is_substitute,
+                "substitute_reason": sub_reason,
+                "total_students": total_students_c,
+                "boys_count": boys_count,
+                "girls_count": girls_count,
+                "attendance_status": att_status,
+                "attendance_submitted": att_marked,
+                "submitted_at": submitted_at,
+                "present_count": pres_c,
+                "absent_count": abs_c,
+                "late_count": late_c,
+                "excused_count": exc_c,
+                "timetable": [
+                    {
+                        "id": tt.id,
+                        "day": tt.day,
+                        "start_time": tt.start_time,
+                        "end_time": tt.end_time,
+                        "subject_name": subj_map.get(tt.subject_id, "—"),
+                        "room": tt.room or "Main Classroom",
+                    }
+                    for tt in c_timetables
+                ],
+            }
+
     if current_user.role == "teacher":
         if not teacher_rec:
             assigned_cids, assigned_sids, class_subj_map = set(), set(), {}
@@ -2469,6 +2622,7 @@ def api_teacher_overview():
             "last_name": teacher_rec.last_name if teacher_rec else "",
             "specialization": teacher_rec.subject_specialization if teacher_rec else None,
         },
+        "assigned_class": assigned_class_info,
         "classes": [{"id": c.id, "name": c.name, "capacity": c.capacity} for c in visible_classes],
         "subjects": [{"id": s.id, "name": s.name, "code": s.code} for s in visible_subjects],
         "class_subject_map": class_subj_map,
@@ -2545,9 +2699,48 @@ def api_teacher_attendance(class_id):
         teacher_rec = Teacher.query.filter_by(school_id=school_id, user_id=current_user.id).first()
         if not teacher_rec:
             return jsonify({"error": "No teacher profile found for your account."}), 403
-        assigned_cids, _, _ = get_teacher_assigned_classes_and_subjects(teacher_rec.id, school_id)
-        if class_id not in assigned_cids:
-            return jsonify({"error": "You are not authorized to record attendance for this class."}), 403
+
+        # Class teacher or active substitute authorization check
+        req_date_str = request.args.get("date") if request.method == "GET" else ((request.get_json(silent=True) or {}).get("date"))
+        try:
+            target_date = datetime.datetime.strptime(req_date_str, "%Y-%m-%d").date() if req_date_str else datetime.date.today()
+        except (ValueError, TypeError):
+            target_date = datetime.date.today()
+
+        designated_alloc = ClassTeacherAllocation.query.filter_by(
+            school_id=school_id, class_id=class_id, status="active"
+        ).first()
+        designated_tid = designated_alloc.teacher_id if designated_alloc else school_class.class_teacher_id
+        is_designated = bool(designated_tid is not None and designated_tid == teacher_rec.id)
+
+        is_substitute = False
+        sub = SubstituteAllocation.query.filter(
+            SubstituteAllocation.school_id == school_id,
+            SubstituteAllocation.class_id == class_id,
+            SubstituteAllocation.substitute_teacher_id == teacher_rec.id,
+            SubstituteAllocation.is_active.is_(True),
+            SubstituteAllocation.start_date <= target_date,
+            SubstituteAllocation.end_date >= target_date,
+        ).first()
+        if sub:
+            is_substitute = True
+
+        if designated_tid is not None:
+            if teacher_rec.id != designated_tid and not is_substitute:
+                return jsonify({"error": "You are not the designated class teacher or active substitute for this class."}), 403
+        else:
+            assigned_cids, _, _ = get_teacher_assigned_classes_and_subjects(teacher_rec.id, school_id)
+            if class_id not in assigned_cids and not is_substitute:
+                return jsonify({"error": "You are not the designated class teacher or active substitute for this class."}), 403
+
+        if request.method == "POST":
+            settings = SMSSettings.query.filter_by(school_id=school_id).first()
+            window_hours = settings.attendance_correction_window_hours if settings else 24
+            days_diff = (datetime.date.today() - target_date).days
+            if days_diff > 0 and (days_diff * 24) > window_hours:
+                return jsonify({
+                    "error": "The daily attendance register for this date is closed (past the allowed correction window). Please contact a school administrator to request an attendance correction."
+                }), 403
 
     students = Student.query.filter_by(school_id=school_id, class_id=class_id).order_by(Student.first_name.asc()).all()
 
@@ -2600,7 +2793,7 @@ def api_teacher_attendance(class_id):
 
     data = request.get_json(silent=True) or {}
     date_str = data.get("date") or datetime.date.today().isoformat()
-    records = data.get("records") or {}
+    records = data.get("records") or data.get("attendance") or {}
     allow_edit = bool(data.get("allow_edit", False))
 
     try:
@@ -2609,27 +2802,43 @@ def api_teacher_attendance(class_id):
         return jsonify({"error": "Invalid date format."}), 400
 
     existing_count = Attendance.query.filter_by(school_id=school_id, class_id=class_id, date=date_obj).count()
-    if existing_count > 0 and not allow_edit:
-        return jsonify({
-            "error": "Attendance has already been recorded for this class on this date. Please unlock edit mode to make changes.",
-            "already_recorded": True,
-        }), 409
+    if existing_count > 0:
+        if not allow_edit:
+            return jsonify({
+                "error": "Attendance has already been recorded for this class on this date. Please unlock edit mode to make changes.",
+                "already_recorded": True,
+            }), 409
+        # Teachers cannot modify another teacher's attendance record unless designated or active substitute
+        if current_user.role == "teacher" and teacher_rec:
+            first_rec = Attendance.query.filter_by(school_id=school_id, class_id=class_id, date=date_obj).first()
+            if first_rec and first_rec.recorded_by_id and first_rec.recorded_by_id != teacher_rec.id:
+                if not is_designated and not is_substitute:
+                    return jsonify({
+                        "error": "This attendance register was recorded by another teacher. Only the original teacher or an administrator may modify it."
+                    }), 403
 
     now_utc = utc_now()
     present_c = 0
     absent_c = 0
+    remarks_map = data.get("remarks") or {}
     for s in students:
         status = records.get(str(s.id)) or records.get(s.id) or "Present"
-        if status not in ("Present", "Absent"):
+        if status not in ("Present", "Absent", "Late", "Excused", "Sick"):
             status = "Present"
-        if status == "Present":
+        if status in ("Present", "Late"):
             present_c += 1
         else:
             absent_c += 1
 
+        student_remark = remarks_map.get(str(s.id)) or remarks_map.get(s.id)
+
         rec = Attendance.query.filter_by(school_id=school_id, student_id=s.id, date=date_obj).first()
+        was_already_alerted = bool(rec and rec.status == status)
+
         if rec:
             rec.status = status
+            if student_remark is not None:
+                rec.remarks = student_remark
             rec.recorded_by_id = teacher_rec.id if teacher_rec else current_user.id
             rec.updated_at = now_utc
         else:
@@ -2640,10 +2849,29 @@ def api_teacher_attendance(class_id):
                     class_id=class_id,
                     date=date_obj,
                     status=status,
+                    remarks=student_remark,
                     recorded_by_id=teacher_rec.id if teacher_rec else current_user.id,
                     updated_at=now_utc,
                 )
             )
+
+        # Avoid duplicate alerts: only dispatch if entering Absent/Sick status anew
+        if status in ("Absent", "Sick") and not was_already_alerted:
+            parent_ids = set()
+            if s.parent_id:
+                parent_ids.add(s.parent_id)
+            ps_links = ParentStudent.query.filter_by(school_id=school_id, student_id=s.id).all()
+            for psl in ps_links:
+                parent_ids.add(psl.parent_id)
+            for pid in parent_ids:
+                parent = db.session.get(Parent, pid)
+                if parent and parent.user_id:
+                    send_notification(
+                        parent.user_id,
+                        school_id,
+                        f"Attendance Alert: {s.first_name} {s.last_name} was marked {status.lower()} on {date_obj.isoformat()}.",
+                        "attendance",
+                    )
 
     action_label = "updated" if existing_count > 0 else "saved"
     record_activity(
@@ -2659,6 +2887,7 @@ def api_teacher_attendance(class_id):
     return jsonify({
         "message": f"Attendance register {action_label} for {school_class.name} ({date_obj.isoformat()}).",
         "already_recorded": True,
+        "saved": len(students),
         "present_count": present_c,
         "absent_count": absent_c,
     })
@@ -2893,20 +3122,37 @@ def api_teacher_results(class_id, subject_id, exam_id):
 
     if request.method == "GET":
         existing = {
-            r.student_id: r.marks
+            r.student_id: {
+                "marks": r.marks,
+                "status": getattr(r, "status", "published") or "published",
+                "remarks": getattr(r, "remarks", "") or "",
+            }
             for r in Result.query.filter_by(school_id=school_id, subject_id=subject_id, exam_id=exam_id).all()
         }
+        overall_status = "unrecorded"
+        if existing:
+            statuses = [v["status"] for v in existing.values()]
+            if all(st == "published" for st in statuses):
+                overall_status = "published"
+            elif any(st == "submitted" for st in statuses):
+                overall_status = "submitted"
+            else:
+                overall_status = "draft"
+
         return jsonify({
             "subject_name": subject.name,
             "exam_name": exam.name,
+            "overall_status": overall_status,
             "students": [
                 {
                     "id": s.id,
                     "admission_no": s.admission_no,
                     "first_name": s.first_name,
                     "last_name": s.last_name,
-                    "marks": existing.get(s.id, ""),
-                    "grade": calculate_grade(existing[s.id]) if s.id in existing else "—",
+                    "marks": existing[s.id]["marks"] if s.id in existing else "",
+                    "remarks": existing[s.id]["remarks"] if s.id in existing else "",
+                    "status": existing[s.id]["status"] if s.id in existing else "draft",
+                    "grade": calculate_grade(existing[s.id]["marks"]) if s.id in existing else "—",
                 }
                 for s in students
             ],
@@ -2914,7 +3160,41 @@ def api_teacher_results(class_id, subject_id, exam_id):
 
     data = request.get_json(silent=True) or {}
     marks_map = data.get("marks") or {}
+    remarks_map = data.get("remarks") or {}
+    action = data.get("action") or "submit_for_approval"
+    target_status = "draft" if action == "save_draft" else "submitted"
     saved_count = 0
+    student_ids = [s.id for s in students]
+
+    # Lock check: Teachers cannot modify batches that are currently under review or already published
+    if current_user.role == "teacher":
+        locked_res = Result.query.filter(
+            Result.school_id == school_id,
+            Result.subject_id == subject_id,
+            Result.exam_id == exam_id,
+            Result.student_id.in_(student_ids),
+            Result.status.in_(["submitted", "published"]),
+        ).first()
+        if locked_res:
+            if locked_res.status == "submitted":
+                return jsonify({
+                    "error": "This examination batch is currently submitted for administrator review and locked. Contact your school administrator to request revisions."
+                }), 403
+            elif locked_res.status == "published":
+                return jsonify({
+                    "error": "These examination marks have already been approved and published. Published results cannot be modified without administrator authorization."
+                }), 403
+
+    if not marks_map and target_status == "submitted":
+        existing_res_list = Result.query.filter(
+            Result.school_id == school_id,
+            Result.subject_id == subject_id,
+            Result.exam_id == exam_id,
+            Result.student_id.in_(student_ids),
+        ).all()
+        for r in existing_res_list:
+            r.status = "submitted"
+            saved_count += 1
 
     for s in students:
         raw_val = marks_map.get(str(s.id), marks_map.get(s.id))
@@ -2927,11 +3207,16 @@ def api_teacher_results(class_id, subject_id, exam_id):
         if score < 0 or score > 100:
             return jsonify({"error": f"Marks for {s.first_name} must be between 0 and 100."}), 400
 
+        student_remark = remarks_map.get(str(s.id)) or remarks_map.get(s.id)
+
         existing_res = Result.query.filter_by(
             school_id=school_id, student_id=s.id, subject_id=subject_id, exam_id=exam_id
         ).first()
         if existing_res:
             existing_res.marks = score
+            existing_res.status = target_status
+            if student_remark is not None:
+                existing_res.remarks = student_remark
         else:
             db.session.add(
                 Result(
@@ -2940,21 +3225,39 @@ def api_teacher_results(class_id, subject_id, exam_id):
                     subject_id=subject_id,
                     exam_id=exam_id,
                     marks=score,
+                    status=target_status,
+                    remarks=student_remark,
                 )
             )
         saved_count += 1
 
+    if target_status == "submitted" and saved_count == 0:
+        return jsonify({"error": "Cannot submit an empty examination batch for approval. Please enter at least one mark."}), 400
+
+    status_label = "draft saved" if target_status == "draft" else "submitted for administrator review"
     record_activity(
         "exam",
         "results_recorded",
-        f"Examination results updated for {subject.name} ({exam.name}) — {saved_count} student record(s).",
+        f"Examination marks ({status_label}) for {subject.name} ({exam.name}) — {saved_count} student record(s).",
         school_id=school_id,
         target_type="exam",
         target_id=exam.name,
         commit=False,
     )
+    if target_status == "submitted":
+        admin_user = User.query.filter_by(school_id=school_id, role="admin").first()
+        if admin_user:
+            send_notification(
+                admin_user.id,
+                school_id,
+                f"New exam marks submitted for approval: {subject.name} ({exam.name}) - {saved_count} student(s).",
+                "exam",
+            )
     db.session.commit()
-    return jsonify({"message": f"Saved exam marks for {saved_count} student(s)."})
+    return jsonify({
+        "message": f"Saved {saved_count} mark(s) as {target_status}.",
+        "status": target_status,
+    })
 
 
 @api.route("/teacher/materials", methods=["POST"])
@@ -3121,7 +3424,12 @@ def api_student_overview():
 
     school_class = SchoolClass.query.filter_by(id=stu.class_id, school_id=school_id).first()
     terms = Term.query.filter_by(school_id=school_id).all()
-    results = Result.query.filter_by(school_id=school_id, student_id=stu.id).all()
+    # Only show published / approved examination marks to students
+    results = (
+        Result.query.filter_by(school_id=school_id, student_id=stu.id)
+        .filter(Result.status.in_(["published", "approved"]) | Result.status.is_(None))
+        .all()
+    )
     materials = Material.query.filter_by(school_id=school_id, class_id=stu.class_id).all()
     assignments = (
         Assignment.query.filter_by(school_id=school_id, class_id=stu.class_id)
@@ -3147,8 +3455,17 @@ def api_student_overview():
         .all()
     )
     timetable = Timetable.query.filter_by(school_id=school_id, class_id=stu.class_id).all()
+    teachers = Teacher.query.filter_by(school_id=school_id).all()
+    teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
     subj_map = {s.id: s.name for s in Subject.query.filter_by(school_id=school_id).all()}
     term_map = {t.id: t.name for t in terms}
+
+    # Attendance statistics
+    att_records = Attendance.query.filter_by(school_id=school_id, student_id=stu.id).order_by(Attendance.date.desc()).all()
+    pres_c = sum(1 for a in att_records if a.status in ("Present", "Late"))
+    abs_c = sum(1 for a in att_records if a.status in ("Absent", "Sick", "Excused"))
+    tot_d = len(att_records)
+    att_rate = round(pres_c / tot_d * 100, 1) if tot_d > 0 else 100.0
 
     return jsonify({
         "student": {
@@ -3238,8 +3555,32 @@ def api_student_overview():
                 "start_time": tt.start_time,
                 "end_time": tt.end_time,
                 "subject_name": subj_map.get(tt.subject_id, "—"),
+                "teacher_name": teacher_map.get(tt.teacher_id, "—"),
+                "room": tt.room or "Main Classroom",
             }
             for tt in timetable
+        ],
+        "attendance": {
+            "present": pres_c,
+            "absent": abs_c,
+            "total": tot_d,
+            "rate": att_rate,
+            "records": [
+                {
+                    "date": a.date.isoformat(),
+                    "status": a.status,
+                    "remarks": a.remarks or "",
+                }
+                for a in att_records[:20]
+            ],
+        },
+        "terms": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "is_active": t.is_active,
+            }
+            for t in terms
         ],
     })
 
@@ -3309,13 +3650,24 @@ def api_parent_overview():
     for child in children:
         if child.class_id:
             class_ids.append(child.class_id)
-        results = Result.query.filter_by(school_id=school_id, student_id=child.id).all()
+        # Only show published / approved examination marks to parents
+        results = (
+            Result.query.filter_by(school_id=school_id, student_id=child.id)
+            .filter(Result.status.in_(["published", "approved"]) | Result.status.is_(None))
+            .all()
+        )
         att_records = (
             Attendance.query.filter_by(school_id=school_id, student_id=child.id)
             .order_by(Attendance.date.desc())
             .limit(30)
             .all()
         )
+        pres_c = sum(1 for a in att_records if a.status in ("Present", "Late"))
+        abs_c = sum(1 for a in att_records if a.status in ("Absent", "Sick", "Excused"))
+        tot_d = len(att_records)
+        att_rate = round(pres_c / tot_d * 100, 1) if tot_d > 0 else 100.0
+
+        child_timetable = Timetable.query.filter_by(school_id=school_id, class_id=child.class_id).all()
         payments = (
             Payment.query.filter_by(school_id=school_id, student_id=child.id)
             .order_by(Payment.payment_date.desc())
@@ -3412,8 +3764,33 @@ def api_parent_overview():
                     "id": a.id,
                     "date": a.date.isoformat() if a.date else None,
                     "status": a.status,
+                    "remarks": a.remarks or "",
                 }
                 for a in att_records
+            ],
+            "attendance_stats": {
+                "present": pres_c,
+                "absent": abs_c,
+                "total": tot_d,
+                "rate": att_rate,
+            },
+            "timetable": [
+                {
+                    "id": tt.id,
+                    "day": tt.day,
+                    "start_time": tt.start_time,
+                    "end_time": tt.end_time,
+                    "subject_name": subj_map.get(tt.subject_id, "—"),
+                    "room": tt.room or "Main Classroom",
+                }
+                for tt in child_timetable
+            ],
+            "terms": [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                }
+                for t in terms
             ],
             "payments": [
                 {
@@ -4969,3 +5346,1779 @@ def api_superadmin_override_plan(school_id):
         "message": f"School '{school.name}' plan updated to {new_plan.title()}.",
         "school": _serialize_school_for_superadmin(school),
     })
+
+
+# ══════════════════════════════════════════════════════════════════
+#  EXTENDED SMS ROLE ENDPOINTS: ATTENDANCE, EXAM APPROVALS, SETTINGS
+# ══════════════════════════════════════════════════════════════════
+
+@api.route("/admin/attendance/overview", methods=["GET"])
+@login_required
+def api_admin_attendance_overview():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    date_str = request.args.get("date") or datetime.date.today().isoformat()
+    class_id = request.args.get("class_id", type=int)
+
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        date_obj = datetime.date.today()
+
+    students_query = Student.query.filter_by(school_id=school_id, status="active")
+    if class_id:
+        students_query = students_query.filter_by(class_id=class_id)
+    students = students_query.order_by(Student.first_name.asc()).all()
+
+    att_query = Attendance.query.filter_by(school_id=school_id, date=date_obj)
+    if class_id:
+        att_query = att_query.filter_by(class_id=class_id)
+    att_records = att_query.all()
+    att_map = {a.student_id: a for a in att_records}
+
+    classes = SchoolClass.query.filter_by(school_id=school_id, is_active=True).all()
+    class_map = {c.id: c.name for c in classes}
+    parents = Parent.query.filter_by(school_id=school_id).all()
+    parent_map = {p.id: p.phone for p in parents}
+
+    present_count = sum(1 for a in att_records if a.status in ("Present", "Late"))
+    absent_count = sum(1 for a in att_records if a.status == "Absent")
+    late_count = sum(1 for a in att_records if a.status == "Late")
+    excused_count = sum(1 for a in att_records if a.status == "Excused")
+    sick_count = sum(1 for a in att_records if a.status == "Sick")
+    total_marked = len(att_records)
+    total_students = len(students)
+    rate = round((present_count / total_marked) * 100, 1) if total_marked > 0 else 0.0
+
+    student_rows = []
+    absent_list = []
+    for s in students:
+        a = att_map.get(s.id)
+        current_status = a.status if a else "Unmarked"
+        remarks = a.remarks if a else ""
+        row = {
+            "id": s.id,
+            "admission_no": s.admission_no,
+            "name": f"{s.first_name} {s.last_name}",
+            "class_id": s.class_id,
+            "class_name": class_map.get(s.class_id, "—"),
+            "status": current_status,
+            "remarks": remarks or "",
+            "guardian_phone": parent_map.get(s.parent_id, "No contact on file"),
+            "attendance_id": a.id if a else None,
+        }
+        student_rows.append(row)
+        if current_status in ("Absent", "Sick", "Excused"):
+            absent_list.append(row)
+
+    # Class Teacher Attendance Monitoring calculation
+    all_active_classes = SchoolClass.query.filter_by(school_id=school_id, is_active=True).all()
+    teachers_list = Teacher.query.filter_by(school_id=school_id).all()
+    teacher_by_id = {t.id: t for t in teachers_list}
+
+    # Fetch active allocations
+    active_alloc_map = {
+        a.class_id: a.teacher_id
+        for a in ClassTeacherAllocation.query.filter_by(school_id=school_id, status="active").all()
+    }
+    # Active substitutes today
+    active_sub_map = {
+        s.class_id: s.substitute_teacher_id
+        for s in SubstituteAllocation.query.filter(
+            SubstituteAllocation.school_id == school_id,
+            SubstituteAllocation.is_active.is_(True),
+            SubstituteAllocation.start_date <= date_obj,
+            SubstituteAllocation.end_date >= date_obj,
+        ).all()
+    }
+
+    class_monitoring = []
+    classes_with_teachers = 0
+    classes_without_teachers = 0
+    submitted_classes_count = 0
+    pending_classes_count = 0
+    teachers_not_submitted = []
+
+    for cl in all_active_classes:
+        assigned_tid = active_alloc_map.get(cl.id) or cl.class_teacher_id
+        is_sub = cl.id in active_sub_map
+        effective_tid = active_sub_map.get(cl.id) or assigned_tid
+        effective_teacher = teacher_by_id.get(effective_tid)
+
+        if assigned_tid or is_sub:
+            classes_with_teachers += 1
+        else:
+            classes_without_teachers += 1
+
+        cl_students = Student.query.filter_by(school_id=school_id, class_id=cl.id, status="active").all()
+        cl_tot = len(cl_students)
+        cl_att = Attendance.query.filter_by(school_id=school_id, class_id=cl.id, date=date_obj).all()
+        cl_marked = len(cl_att)
+
+        if cl_marked == 0:
+            c_status = "not_started"
+            pending_classes_count += 1
+            if effective_teacher:
+                teachers_not_submitted.append({
+                    "class_id": cl.id,
+                    "class_name": cl.name,
+                    "teacher_id": effective_teacher.id,
+                    "teacher_name": f"{effective_teacher.first_name} {effective_teacher.last_name}",
+                    "teacher_phone": effective_teacher.phone or "",
+                    "teacher_email": effective_teacher.email or "",
+                    "is_substitute": is_sub,
+                })
+        elif cl_marked < cl_tot and cl_tot > 0:
+            c_status = "in_progress"
+            pending_classes_count += 1
+            if effective_teacher:
+                teachers_not_submitted.append({
+                    "class_id": cl.id,
+                    "class_name": cl.name,
+                    "teacher_id": effective_teacher.id,
+                    "teacher_name": f"{effective_teacher.first_name} {effective_teacher.last_name}",
+                    "teacher_phone": effective_teacher.phone or "",
+                    "teacher_email": effective_teacher.email or "",
+                    "is_substitute": is_sub,
+                })
+        else:
+            c_status = "submitted"
+            submitted_classes_count += 1
+
+        first_rec = cl_att[0] if cl_att else None
+        c_sub_time = first_rec.updated_at.isoformat() if (first_rec and first_rec.updated_at) else None
+
+        class_monitoring.append({
+            "class_id": cl.id,
+            "class_name": cl.name,
+            "status": c_status,
+            "teacher_name": f"{effective_teacher.first_name} {effective_teacher.last_name}" if effective_teacher else "Unassigned",
+            "is_substitute": is_sub,
+            "total_students": cl_tot,
+            "marked_students": cl_marked,
+            "present_count": sum(1 for a in cl_att if a.status in ("Present", "Late")),
+            "absent_count": sum(1 for a in cl_att if a.status in ("Absent", "Sick")),
+            "late_count": sum(1 for a in cl_att if a.status == "Late"),
+            "submitted_at": c_sub_time,
+        })
+
+    return jsonify({
+        "date": date_obj.isoformat(),
+        "class_id": class_id,
+        "classes": [{"id": c.id, "name": c.name} for c in classes],
+        "summary": {
+            "total_students": total_students,
+            "total_marked": total_marked,
+            "present_count": present_count,
+            "absent_count": absent_count,
+            "late_count": late_count,
+            "excused_count": excused_count,
+            "sick_count": sick_count,
+            "attendance_rate": rate,
+            "total_classes": len(all_active_classes),
+            "classes_with_teachers": classes_with_teachers,
+            "classes_without_teachers": classes_without_teachers,
+            "submitted_classes_count": submitted_classes_count,
+            "pending_classes_count": pending_classes_count,
+        },
+        "class_monitoring": class_monitoring,
+        "teachers_not_submitted": teachers_not_submitted,
+        "students": student_rows,
+        "absent_today": absent_list,
+    })
+
+
+@api.route("/admin/attendance/correct", methods=["POST"])
+@login_required
+def api_admin_attendance_correct():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    data = request.get_json(silent=True) or request.form
+
+    try:
+        student_id = int(data.get("student_id"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Valid student ID is required."}), 400
+
+    date_str = (data.get("date") or "").strip()
+    status = (data.get("status") or "").strip()
+    remarks = (data.get("remarks") or "").strip()
+    reason = (data.get("reason") or "").strip()
+
+    if not reason:
+        return jsonify({"error": "An administrative reason is required for attendance audit records."}), 400
+
+    if status not in ("Present", "Absent", "Late", "Excused", "Sick"):
+        return jsonify({"error": "Invalid attendance status."}), 400
+
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Expected YYYY-MM-DD."}), 400
+
+    student = Student.query.filter_by(id=student_id, school_id=school_id).first_or_404()
+
+    rec = Attendance.query.filter_by(school_id=school_id, student_id=student.id, date=date_obj).first()
+    old_status = rec.status if rec else "Unmarked"
+    effective_remarks = remarks if remarks else reason
+
+    if rec:
+        rec.status = status
+        rec.remarks = effective_remarks
+        rec.recorded_by_id = current_user.id
+        rec.updated_at = utc_now()
+    else:
+        rec = Attendance(
+            school_id=school_id,
+            student_id=student.id,
+            class_id=student.class_id,
+            date=date_obj,
+            status=status,
+            remarks=effective_remarks,
+            recorded_by_id=current_user.id,
+            updated_at=utc_now(),
+        )
+        db.session.add(rec)
+
+    record_activity(
+        "attendance",
+        "attendance_corrected",
+        f"Attendance corrected for {student.first_name} {student.last_name} ({date_obj.isoformat()}): from '{old_status}' to '{status}'. Reason: {reason}",
+        school_id=school_id,
+        actor_user=current_user,
+        target_type="student",
+        target_id=student.id,
+        metadata={"old_status": old_status, "new_status": status, "reason": reason},
+        commit=True,
+    )
+
+    return jsonify({
+        "message": f"Attendance successfully updated to {status}.",
+        "student_id": student.id,
+        "date": date_obj.isoformat(),
+        "status": status,
+        "remarks": remarks,
+    })
+
+
+@api.route("/admin/results/pending", methods=["GET"])
+@login_required
+def api_admin_results_pending():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    # Query results awaiting approval
+    pending_results = (
+        Result.query.filter_by(school_id=school_id, status="submitted")
+        .all()
+    )
+
+    grouped = {}
+    for r in pending_results:
+        key = (r.exam_id, r.subject_id)
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(r)
+
+    classes = SchoolClass.query.filter_by(school_id=school_id).all()
+    class_map = {c.id: c.name for c in classes}
+    subjects = Subject.query.filter_by(school_id=school_id).all()
+    subj_map = {s.id: s.name for s in subjects}
+    exams = Exam.query.filter_by(school_id=school_id).all()
+    exam_map = {e.id: e for e in exams}
+
+    batches = []
+    for (exam_id, subject_id), res_list in grouped.items():
+        exam_obj = exam_map.get(exam_id)
+        first_r = res_list[0]
+        st_obj = db.session.get(Student, first_r.student_id)
+        class_id = st_obj.class_id if st_obj else None
+        avg_score = round(sum(r.marks for r in res_list) / len(res_list), 1)
+
+        batches.append({
+            "exam_id": exam_id,
+            "exam_name": exam_obj.name if exam_obj else "—",
+            "subject_id": subject_id,
+            "subject_name": subj_map.get(subject_id, "—"),
+            "class_id": class_id,
+            "class_name": class_map.get(class_id, "—") if class_id else "—",
+            "student_count": len(res_list),
+            "average_score": avg_score,
+            "submitted_at": first_r.updated_at.isoformat() if getattr(first_r, "updated_at", None) else None,
+        })
+
+    return jsonify({
+        "pending_batches": batches,
+        "total_pending_records": len(pending_results),
+    })
+
+
+@api.route("/admin/results/approve", methods=["POST"])
+@login_required
+def api_admin_results_approve():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    data = request.get_json(silent=True) or request.form
+
+    try:
+        exam_id = int(data.get("exam_id"))
+        subject_id = int(data.get("subject_id"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Exam ID and Subject ID are required."}), 400
+
+    class_id = data.get("class_id")
+    action = data.get("action") or "approve_publish"  # "approve_publish" or "reject_to_draft"
+
+    query = Result.query.filter_by(school_id=school_id, exam_id=exam_id, subject_id=subject_id)
+    if class_id:
+        student_ids = [s.id for s in Student.query.filter_by(school_id=school_id, class_id=int(class_id)).all()]
+        query = query.filter(Result.student_id.in_(student_ids))
+
+    results = query.all()
+    if not results:
+        return jsonify({"error": "No matching examination records found to process."}), 404
+
+    exam = db.session.get(Exam, exam_id)
+    subject = db.session.get(Subject, subject_id)
+
+    feedback = (data.get("feedback") or data.get("reason") or data.get("notes") or "").strip()
+    target_status = "published" if action in ("approve", "approve_publish") else "draft"
+    for r in results:
+        r.status = target_status
+        if target_status == "draft" and feedback:
+            r.remarks = f"Returned for revision: {feedback}"
+        r.updated_at = utc_now()
+
+    if target_status == "published":
+        # Create notifications for students and parents
+        for r in results:
+            s = db.session.get(Student, r.student_id)
+            if s and s.user_id:
+                send_notification(
+                    s.user_id,
+                    school_id,
+                    f"Exam Results Published: {subject.name if subject else 'Subject'} ({exam.name if exam else 'Exam'}) - Score: {r.marks}",
+                    "exam",
+                )
+            # Notify parents (via foreign key or junction table)
+            parent_ids = set()
+            if s and s.parent_id:
+                parent_ids.add(s.parent_id)
+            if s:
+                ps_links = ParentStudent.query.filter_by(school_id=school_id, student_id=s.id).all()
+                for psl in ps_links:
+                    parent_ids.add(psl.parent_id)
+            for pid in parent_ids:
+                parent = db.session.get(Parent, pid)
+                if parent and parent.user_id:
+                    send_notification(
+                        parent.user_id,
+                        school_id,
+                        f"Exam Results Published for {s.first_name}: {subject.name if subject else 'Subject'} ({exam.name if exam else 'Exam'}) - Score: {r.marks}",
+                        "exam",
+                    )
+    elif target_status == "draft":
+        # Notify the assigned teacher with administrative feedback
+        teacher_assign = TeacherAssignment.query.filter_by(
+            school_id=school_id,
+            class_id=int(class_id) if class_id else None,
+            subject_id=subject_id,
+        ).first() if class_id else None
+        teacher_uid = None
+        if teacher_assign and teacher_assign.teacher and teacher_assign.teacher.user_id:
+            teacher_uid = teacher_assign.teacher.user_id
+        if teacher_uid:
+            msg = f"Results for {subject.name if subject else 'Subject'} ({exam.name if exam else 'Exam'}) were returned for revision."
+            if feedback:
+                msg += f" Note: {feedback}"
+            send_notification(teacher_uid, school_id, msg, "exam")
+
+    record_activity(
+        "exam",
+        "results_approved" if target_status == "published" else "results_rejected_to_draft",
+        f"Examination marks ({target_status}) for {subject.name if subject else 'Subject'} ({exam.name if exam else 'Exam'}) — {len(results)} student(s).",
+        school_id=school_id,
+        actor_user=current_user,
+        target_type="exam",
+        target_id=exam.name if exam else str(exam_id),
+        commit=True,
+    )
+
+    action_label = "approved and published" if target_status == "published" else "returned to draft status for revision"
+    return jsonify({
+        "message": f"Successfully {action_label} {len(results)} student examination record(s).",
+        "status": target_status,
+        "count": len(results),
+    })
+
+
+@api.route("/admin/results/overview", methods=["GET"])
+@login_required
+def api_admin_results_overview():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    exam_id = request.args.get("exam_id", type=int)
+    class_id = request.args.get("class_id", type=int)
+    subject_id = request.args.get("subject_id", type=int)
+
+    query = Result.query.filter_by(school_id=school_id)
+    if exam_id:
+        query = query.filter_by(exam_id=exam_id)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
+    if class_id:
+        student_ids = [s.id for s in Student.query.filter_by(school_id=school_id, class_id=class_id).all()]
+        query = query.filter(Result.student_id.in_(student_ids))
+
+    results = query.all()
+
+    students = Student.query.filter_by(school_id=school_id).all()
+    student_map = {s.id: s for s in students}
+    subjects = Subject.query.filter_by(school_id=school_id).all()
+    subj_map = {s.id: s.name for s in subjects}
+    exams = Exam.query.filter_by(school_id=school_id).all()
+    exam_map = {e.id: e.name for e in exams}
+    classes = SchoolClass.query.filter_by(school_id=school_id).all()
+    class_map = {c.id: c.name for c in classes}
+
+    rows = []
+    for r in results:
+        s = student_map.get(r.student_id)
+        rows.append({
+            "id": r.id,
+            "student_id": r.student_id,
+            "admission_no": s.admission_no if s else "—",
+            "student_name": f"{s.first_name} {s.last_name}" if s else "—",
+            "class_name": class_map.get(s.class_id, "—") if s else "—",
+            "exam_id": r.exam_id,
+            "exam_name": exam_map.get(r.exam_id, "—"),
+            "subject_id": r.subject_id,
+            "subject_name": subj_map.get(r.subject_id, "—"),
+            "marks": r.marks,
+            "grade": calculate_grade(r.marks),
+            "status": getattr(r, "status", "published") or "published",
+            "remarks": getattr(r, "remarks", "") or "",
+        })
+
+    avg_score = round(sum(r.marks for r in results) / len(results), 1) if results else 0.0
+    pass_count = sum(1 for r in results if r.marks >= 50)
+    fail_count = sum(1 for r in results if r.marks < 50)
+
+    return jsonify({
+        "results": rows,
+        "count": len(rows),
+        "average": avg_score,
+        "pass_count": pass_count,
+        "fail_count": fail_count,
+    })
+
+
+@api.route("/admin/report-cards", methods=["GET"])
+@login_required
+def api_admin_report_cards():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    class_id = request.args.get("class_id", type=int)
+    term_id = request.args.get("term_id", type=int)
+
+    classes = SchoolClass.query.filter_by(school_id=school_id, is_active=True).all()
+    terms = Term.query.filter_by(school_id=school_id).all()
+
+    if not class_id and classes:
+        class_id = classes[0].id
+    if not term_id and terms:
+        term_id = terms[0].id
+
+    students = Student.query.filter_by(school_id=school_id, class_id=class_id, status="active").order_by(Student.first_name.asc()).all()
+
+    student_cards = []
+    student_scores = {}
+    for s in students:
+        res = (
+            Result.query.join(Exam)
+            .filter(
+                Result.school_id == school_id,
+                Result.student_id == s.id,
+                Exam.term_id == term_id,
+                Result.status.in_(["published", "approved"]) | Result.status.is_(None),
+            )
+            .all()
+        )
+        total = sum(r.marks for r in res) if res else 0.0
+        avg = round(total / len(res), 1) if res else 0.0
+        student_scores[s.id] = avg
+
+    sorted_ranks = sorted(student_scores.items(), key=lambda x: x[1], reverse=True)
+    rank_map = {sid: idx + 1 for idx, (sid, _) in enumerate(sorted_ranks)}
+
+    for s in students:
+        avg = student_scores.get(s.id, 0.0)
+        grade = calculate_grade(avg) if avg > 0 else "—"
+        student_cards.append({
+            "id": s.id,
+            "admission_no": s.admission_no,
+            "name": f"{s.first_name} {s.last_name}",
+            "average": avg,
+            "final_grade": grade,
+            "class_rank": rank_map.get(s.id, 1),
+            "class_size": len(students),
+            "pdf_url": f"/student/report-card/{s.id}/{term_id}",
+        })
+
+    return jsonify({
+        "class_id": class_id,
+        "term_id": term_id,
+        "classes": [{"id": c.id, "name": c.name} for c in classes],
+        "terms": [{"id": t.id, "name": t.name} for t in terms],
+        "student_cards": student_cards,
+    })
+
+
+@api.route("/admin/settings", methods=["GET", "POST"])
+@login_required
+def api_admin_settings():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    school = db.session.get(School, school_id)
+    if not school:
+        return jsonify({"error": "School not found."}), 404
+
+    if request.method == "GET":
+        return jsonify({
+            "id": school.id,
+            "name": school.name,
+            "subdomain": school.subdomain,
+            "email": school.email,
+            "phone": school.phone or "",
+            "address": school.address or "",
+            "logo_url": school.logo_url or "",
+            "currency": getattr(school, "currency", "ZMW") or "ZMW",
+            "plan": school.plan,
+            "billing_cycle": school.billing_cycle,
+            "subscription_ends_at": school.subscription_ends_at.isoformat() if school.subscription_ends_at else None,
+        })
+
+    data = request.get_json(silent=True) or request.form
+    name = (data.get("name") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    address = (data.get("address") or "").strip()
+    logo_url = (data.get("logo_url") or "").strip()
+    currency = (data.get("currency") or "ZMW").strip().upper()
+
+    if name:
+        school.name = name
+    if phone:
+        school.phone = phone
+    school.address = address
+    school.logo_url = logo_url
+    if currency in ("ZMW", "USD", "EUR", "GBP", "KES", "ZAR"):
+        school.currency = currency
+
+    record_activity(
+        "school",
+        "settings_updated",
+        f"School settings and profile updated by '{current_user.username}'.",
+        school_id=school_id,
+        actor_user=current_user,
+        target_type="school",
+        target_id=school.id,
+        commit=True,
+    )
+
+    return jsonify({
+        "message": "School settings saved successfully.",
+        "school": {
+            "id": school.id,
+            "name": school.name,
+            "subdomain": school.subdomain,
+            "email": school.email,
+            "phone": school.phone,
+            "address": school.address,
+            "logo_url": school.logo_url,
+            "currency": school.currency,
+        },
+    })
+
+
+@api.route("/teacher/timetable", methods=["GET"])
+@login_required
+def api_teacher_timetable():
+    err = _require_role("teacher", "admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    teacher_rec = Teacher.query.filter_by(school_id=school_id, user_id=current_user.id).first()
+    if not teacher_rec and current_user.role == "teacher":
+        return jsonify({"timetable": []})
+
+    teacher_id = teacher_rec.id if teacher_rec else request.args.get("teacher_id", type=int)
+
+    query = Timetable.query.filter_by(school_id=school_id, is_active=True)
+    if teacher_id:
+        query = query.filter_by(teacher_id=teacher_id)
+    timetables = query.order_by(Timetable.start_time.asc()).all()
+
+    classes = SchoolClass.query.filter_by(school_id=school_id).all()
+    class_map = {c.id: c.name for c in classes}
+    subjects = Subject.query.filter_by(school_id=school_id).all()
+    subj_map = {s.id: s.name for s in subjects}
+
+    entries = [
+        {
+            "id": tt.id,
+            "day": tt.day,
+            "start_time": tt.start_time,
+            "end_time": tt.end_time,
+            "class_id": tt.class_id,
+            "class_name": class_map.get(tt.class_id, "—"),
+            "subject_id": tt.subject_id,
+            "subject_name": subj_map.get(tt.subject_id, "—"),
+            "room": tt.room or "Main Classroom",
+        }
+        for tt in timetables
+    ]
+    by_day = {}
+    for entry in entries:
+        by_day.setdefault(entry["day"], []).append(entry)
+
+    return jsonify({
+        "timetable": entries,
+        "by_day": by_day,
+    })
+
+
+@api.route("/student/timetable", methods=["GET"])
+@login_required
+def api_student_timetable():
+    err = _require_role("student")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    stu = None
+    if current_user.student_id:
+        stu = Student.query.filter_by(id=current_user.student_id, school_id=school_id).first()
+    if not stu:
+        stu = Student.query.filter_by(school_id=school_id, admission_no=current_user.username).first()
+    if not stu or not stu.class_id:
+        return jsonify({"timetable": []})
+
+    timetables = Timetable.query.filter_by(school_id=school_id, class_id=stu.class_id, is_active=True).order_by(Timetable.start_time.asc()).all()
+    teachers = Teacher.query.filter_by(school_id=school_id).all()
+    teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
+    subjects = Subject.query.filter_by(school_id=school_id).all()
+    subj_map = {s.id: s.name for s in subjects}
+
+    return jsonify({
+        "timetable": [
+            {
+                "id": tt.id,
+                "day": tt.day,
+                "start_time": tt.start_time,
+                "end_time": tt.end_time,
+                "subject_name": subj_map.get(tt.subject_id, "—"),
+                "teacher_name": teacher_map.get(tt.teacher_id, "—"),
+                "room": tt.room or "Main Classroom",
+            }
+            for tt in timetables
+        ]
+    })
+
+
+@api.route("/student/attendance", methods=["GET"])
+@login_required
+def api_student_attendance():
+    err = _require_role("student")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    stu = None
+    if current_user.student_id:
+        stu = Student.query.filter_by(id=current_user.student_id, school_id=school_id).first()
+    if not stu:
+        stu = Student.query.filter_by(school_id=school_id, admission_no=current_user.username).first()
+    if not stu:
+        return jsonify({"error": "Student not found."}), 404
+
+    records = Attendance.query.filter_by(school_id=school_id, student_id=stu.id).order_by(Attendance.date.desc()).all()
+    present_c = sum(1 for a in records if a.status in ("Present", "Late"))
+    absent_c = sum(1 for a in records if a.status in ("Absent", "Sick", "Excused"))
+    late_c = sum(1 for a in records if a.status == "Late")
+    excused_c = sum(1 for a in records if a.status == "Excused")
+    sick_c = sum(1 for a in records if a.status == "Sick")
+    tot = len(records)
+    rate = round((present_c / tot) * 100, 1) if tot > 0 else 100.0
+
+    return jsonify({
+        "summary": {
+            "total_days": tot,
+            "present_days": present_c,
+            "absent_days": absent_c,
+            "late_days": late_c,
+            "excused_days": excused_c,
+            "sick_days": sick_c,
+            "attendance_rate": rate,
+        },
+        "records": [
+            {
+                "id": a.id,
+                "date": a.date.isoformat(),
+                "status": a.status,
+                "remarks": a.remarks or "",
+            }
+            for a in records[:60]
+        ],
+    })
+
+
+@api.route("/parent/child/<int:child_id>/timetable", methods=["GET"])
+@login_required
+def api_parent_child_timetable(child_id):
+    err = _require_role("parent")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    parent = Parent.query.filter_by(school_id=school_id, user_id=current_user.id).first_or_404()
+    link = ParentStudent.query.filter_by(school_id=school_id, parent_id=parent.id, student_id=child_id).first()
+    if not link:
+        return jsonify({"error": "You are not authorized to view records for this child."}), 403
+
+    child = db.session.get(Student, child_id)
+    if not child or not child.class_id:
+        return jsonify({"timetable": []})
+
+    timetables = Timetable.query.filter_by(school_id=school_id, class_id=child.class_id, is_active=True).order_by(Timetable.start_time.asc()).all()
+    teachers = Teacher.query.filter_by(school_id=school_id).all()
+    teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
+    subjects = Subject.query.filter_by(school_id=school_id).all()
+    subj_map = {s.id: s.name for s in subjects}
+
+    return jsonify({
+        "child_id": child.id,
+        "child_name": f"{child.first_name} {child.last_name}",
+        "timetable": [
+            {
+                "id": tt.id,
+                "day": tt.day,
+                "start_time": tt.start_time,
+                "end_time": tt.end_time,
+                "subject_name": subj_map.get(tt.subject_id, "—"),
+                "teacher_name": teacher_map.get(tt.teacher_id, "—"),
+                "room": tt.room or "Main Classroom",
+            }
+            for tt in timetables
+        ]
+    })
+
+
+
+
+# -----------------------------------------------------------------------------
+# CLASS TEACHER ALLOCATION, SUBSTITUTE ALLOCATION & SUBJECT ATTENDANCE
+# -----------------------------------------------------------------------------
+
+@api.route("/teacher/subject-attendance/<int:class_id>/<int:subject_id>", methods=["GET", "POST"])
+@login_required
+def api_teacher_subject_attendance(class_id, subject_id):
+    err = _require_role("teacher", "admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    school_class = SchoolClass.query.filter_by(id=class_id, school_id=school_id).first_or_404()
+    subject = Subject.query.filter_by(id=subject_id, school_id=school_id).first_or_404()
+
+    teacher_rec = None
+    if current_user.role == "teacher":
+        teacher_rec = Teacher.query.filter_by(school_id=school_id, user_id=current_user.id).first()
+        if not teacher_rec:
+            return jsonify({"error": "No teacher profile found."}), 403
+
+    students = Student.query.filter_by(school_id=school_id, class_id=class_id, status="active").order_by(Student.first_name.asc()).all()
+
+    if request.method == "GET":
+        date_str = request.args.get("date") or datetime.date.today().isoformat()
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            date_obj = datetime.date.today()
+
+        records = SubjectAttendance.query.filter_by(
+            school_id=school_id, class_id=class_id, subject_id=subject_id, date=date_obj
+        ).all()
+        rec_map = {r.student_id: r.status for r in records}
+        remarks_map = {r.student_id: r.remarks for r in records}
+
+        return jsonify({
+            "class_id": school_class.id,
+            "class_name": school_class.name,
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "date": date_obj.isoformat(),
+            "already_recorded": len(records) > 0,
+            "students": [
+                {
+                    "id": s.id,
+                    "admission_no": s.admission_no,
+                    "first_name": s.first_name,
+                    "last_name": s.last_name,
+                    "status": rec_map.get(s.id, "Present"),
+                    "remarks": remarks_map.get(s.id, ""),
+                }
+                for s in students
+            ],
+        })
+
+    data = request.get_json(silent=True) or {}
+    date_str = data.get("date") or datetime.date.today().isoformat()
+    raw_records = data.get("records") or {}
+    remarks_dict = data.get("remarks") or {}
+    period_val = data.get("period")
+
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Invalid date format."}), 400
+
+    now_utc = utc_now()
+    for s in students:
+        st = raw_records.get(str(s.id)) or raw_records.get(s.id) or "Present"
+        if st not in ("Present", "Absent", "Late", "Excused", "Sick"):
+            st = "Present"
+        rem = remarks_dict.get(str(s.id)) or remarks_dict.get(s.id)
+
+        rec = SubjectAttendance.query.filter_by(
+            school_id=school_id, class_id=class_id, subject_id=subject_id, student_id=s.id, date=date_obj
+        ).first()
+
+        if rec:
+            rec.status = st
+            rec.remarks = rem
+            rec.period = period_val
+            rec.recorded_by_id = teacher_rec.id if teacher_rec else current_user.id
+            rec.updated_at = now_utc
+        else:
+            db.session.add(
+                SubjectAttendance(
+                    school_id=school_id,
+                    class_id=class_id,
+                    subject_id=subject_id,
+                    student_id=s.id,
+                    date=date_obj,
+                    period=period_val,
+                    status=st,
+                    remarks=rem,
+                    recorded_by_id=teacher_rec.id if teacher_rec else current_user.id,
+                    updated_at=now_utc,
+                )
+            )
+
+    db.session.commit()
+    return jsonify({"message": "Subject attendance saved successfully."}), 200
+
+
+@api.route("/admin/class-teachers", methods=["GET", "POST"])
+@login_required
+def api_admin_class_teachers():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    if request.method == "GET":
+        classes = SchoolClass.query.filter_by(school_id=school_id, is_active=True).order_by(SchoolClass.name.asc()).all()
+        teachers = Teacher.query.filter_by(school_id=school_id).order_by(Teacher.first_name.asc()).all()
+        teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
+        staff_no_map = {t.id: t.staff_no for t in teachers}
+
+        active_allocs = ClassTeacherAllocation.query.filter_by(school_id=school_id, status="active").all()
+        allocated_teacher_ids = {a.teacher_id for a in active_allocs}
+        allocated_class_ids = {a.class_id for a in active_allocs}
+
+        # Sync existing SchoolClass.class_teacher_id into active allocations if missing
+        synced = False
+        for c in classes:
+            if c.class_teacher_id and c.id not in allocated_class_ids:
+                alloc = ClassTeacherAllocation(
+                    school_id=school_id,
+                    class_id=c.id,
+                    teacher_id=c.class_teacher_id,
+                    academic_year="2025/2026",
+                    assignment_date=datetime.date.today(),
+                    status="active",
+                    created_by_id=current_user.id,
+                )
+                db.session.add(alloc)
+                allocated_teacher_ids.add(c.class_teacher_id)
+                allocated_class_ids.add(c.id)
+                synced = True
+        if synced:
+            db.session.commit()
+
+        active_allocs = ClassTeacherAllocation.query.filter_by(school_id=school_id, status="active").order_by(ClassTeacherAllocation.assignment_date.desc()).all()
+        class_map = {c.id: c.name for c in classes}
+        history_allocs = ClassTeacherAllocation.query.filter_by(school_id=school_id).order_by(ClassTeacherAllocation.created_at.desc()).limit(50).all()
+
+        unallocated_classes = [
+            {"id": c.id, "name": c.name}
+            for c in classes if c.id not in allocated_class_ids
+        ]
+        unallocated_teachers = [
+            {"id": t.id, "name": f"{t.first_name} {t.last_name}", "staff_no": t.staff_no, "specialization": t.subject_specialization}
+            for t in teachers if t.id not in allocated_teacher_ids
+        ]
+
+        return jsonify({
+            "allocations": [
+                {
+                    "id": a.id,
+                    "academic_year": a.academic_year,
+                    "class_id": a.class_id,
+                    "class_name": class_map.get(a.class_id, "—"),
+                    "teacher_id": a.teacher_id,
+                    "teacher_name": teacher_map.get(a.teacher_id, "—"),
+                    "staff_no": staff_no_map.get(a.teacher_id, "—"),
+                    "assignment_date": a.assignment_date.isoformat() if a.assignment_date else None,
+                    "status": a.status,
+                    "previous_teacher_id": a.previous_teacher_id,
+                    "previous_teacher_name": teacher_map.get(a.previous_teacher_id) if a.previous_teacher_id else None,
+                    "is_override": a.is_override,
+                    "override_reason": a.override_reason,
+                    "created_at": a.created_at.isoformat() if a.created_at else None,
+                }
+                for a in active_allocs
+            ],
+            "unallocated_classes": unallocated_classes,
+            "unallocated_teachers": unallocated_teachers,
+            "classes": [{"id": c.id, "name": c.name} for c in classes],
+            "teachers": [{"id": t.id, "name": f"{t.first_name} {t.last_name}", "staff_no": t.staff_no} for t in teachers],
+            "history": [
+                {
+                    "id": h.id,
+                    "academic_year": h.academic_year,
+                    "class_name": class_map.get(h.class_id, "—"),
+                    "teacher_name": teacher_map.get(h.teacher_id, "—"),
+                    "status": h.status,
+                    "assignment_date": h.assignment_date.isoformat() if h.assignment_date else None,
+                    "is_override": h.is_override,
+                    "override_reason": h.override_reason,
+                }
+                for h in history_allocs
+            ],
+        })
+
+    data = request.get_json(silent=True) or request.form
+    try:
+        class_id = int(data.get("class_id"))
+        teacher_id = int(data.get("teacher_id"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Class ID and Teacher ID are required."}), 400
+
+    school_class = SchoolClass.query.filter_by(id=class_id, school_id=school_id).first_or_404()
+    teacher = Teacher.query.filter_by(id=teacher_id, school_id=school_id).first_or_404()
+
+    academic_year = (data.get("academic_year") or "2025/2026").strip()
+    is_override = bool(data.get("is_override", False))
+    override_reason = (data.get("override_reason") or "").strip()
+
+    # 1-class-per-teacher rule enforcement
+    existing_teacher_alloc = ClassTeacherAllocation.query.filter_by(
+        school_id=school_id, teacher_id=teacher_id, academic_year=academic_year, status="active"
+    ).first()
+
+    if existing_teacher_alloc and existing_teacher_alloc.class_id != class_id:
+        other_class = db.session.get(SchoolClass, existing_teacher_alloc.class_id)
+        other_class_name = other_class.name if other_class else "another class"
+        if not is_override:
+            return jsonify({
+                "error": f"{teacher.first_name} {teacher.last_name} is already assigned as Class Teacher for {other_class_name}.",
+                "conflict_class": other_class_name,
+                "requires_override": True,
+            }), 409
+        if not override_reason:
+            return jsonify({
+                "error": "An administrative override reason is required when assigning a teacher to more than one class."
+            }), 400
+
+    # Deactivate existing active allocation for this class
+    current_class_alloc = ClassTeacherAllocation.query.filter_by(
+        school_id=school_id, class_id=class_id, status="active"
+    ).first()
+    previous_tid = None
+    if current_class_alloc:
+        previous_tid = current_class_alloc.teacher_id
+        current_class_alloc.status = "reassigned"
+
+    new_alloc = ClassTeacherAllocation(
+        school_id=school_id,
+        class_id=class_id,
+        teacher_id=teacher_id,
+        academic_year=academic_year,
+        assignment_date=datetime.date.today(),
+        status="active",
+        previous_teacher_id=previous_tid,
+        is_override=is_override,
+        override_reason=override_reason if is_override else None,
+        created_by_id=current_user.id,
+    )
+    db.session.add(new_alloc)
+    school_class.class_teacher_id = teacher_id
+
+    record_activity(
+        "class_teacher_allocation",
+        "assigned",
+        f"Class Teacher assigned to {school_class.name}",
+        school_id=school_id,
+        metadata={"class_id": class_id, "teacher_id": teacher_id, "is_override": is_override},
+    )
+    db.session.commit()
+
+    return jsonify({"message": f"Class Teacher successfully assigned to {school_class.name}."}), 201
+
+
+@api.route("/admin/class-teachers/<int:allocation_id>", methods=["DELETE"])
+@login_required
+def api_admin_class_teacher_revoke(allocation_id):
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    alloc = ClassTeacherAllocation.query.filter_by(id=allocation_id, school_id=school_id).first_or_404()
+    alloc.status = "revoked"
+
+    school_class = db.session.get(SchoolClass, alloc.class_id)
+    if school_class and school_class.class_teacher_id == alloc.teacher_id:
+        school_class.class_teacher_id = None
+
+    record_activity(
+        "class_teacher_allocation",
+        "revoked",
+        f"Class Teacher allocation revoked for class {alloc.class_id}",
+        school_id=school_id,
+        metadata={"class_id": alloc.class_id, "teacher_id": alloc.teacher_id},
+    )
+    db.session.commit()
+    return jsonify({"message": "Class Teacher allocation revoked successfully."}), 200
+
+
+@api.route("/admin/substitutes", methods=["GET", "POST"])
+@login_required
+def api_admin_substitutes():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    if request.method == "GET":
+        subs = SubstituteAllocation.query.filter_by(school_id=school_id).order_by(SubstituteAllocation.start_date.desc()).all()
+        teachers = Teacher.query.filter_by(school_id=school_id).all()
+        teacher_map = {t.id: f"{t.first_name} {t.last_name}" for t in teachers}
+        classes = SchoolClass.query.filter_by(school_id=school_id).all()
+        class_map = {c.id: c.name for c in classes}
+
+        return jsonify({
+            "substitutes": [
+                {
+                    "id": s.id,
+                    "class_id": s.class_id,
+                    "class_name": class_map.get(s.class_id, "—"),
+                    "original_teacher_id": s.original_teacher_id,
+                    "original_teacher_name": teacher_map.get(s.original_teacher_id, "—") if s.original_teacher_id else "None",
+                    "substitute_teacher_id": s.substitute_teacher_id,
+                    "substitute_teacher_name": teacher_map.get(s.substitute_teacher_id, "—"),
+                    "start_date": s.start_date.isoformat(),
+                    "end_date": s.end_date.isoformat(),
+                    "reason": s.reason,
+                    "is_active": s.is_active,
+                }
+                for s in subs
+            ]
+        })
+
+    data = request.get_json(silent=True) or request.form
+    try:
+        class_id = int(data.get("class_id"))
+        sub_teacher_id = int(data.get("substitute_teacher_id"))
+        start_date = datetime.datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
+        end_date = datetime.datetime.strptime(data.get("end_date"), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return jsonify({"error": "Class ID, substitute teacher ID, start date and end date are required."}), 400
+
+    if start_date > end_date:
+        return jsonify({"error": "Start date must be before or equal to end date."}), 400
+
+    school_class = SchoolClass.query.filter_by(id=class_id, school_id=school_id).first_or_404()
+    sub_teacher = Teacher.query.filter_by(id=sub_teacher_id, school_id=school_id).first_or_404()
+    reason = (data.get("reason") or "Teacher temporary leave").strip()
+
+    sub = SubstituteAllocation(
+        school_id=school_id,
+        class_id=class_id,
+        original_teacher_id=school_class.class_teacher_id,
+        substitute_teacher_id=sub_teacher_id,
+        start_date=start_date,
+        end_date=end_date,
+        reason=reason,
+        authorized_by_id=current_user.id,
+        is_active=True,
+    )
+    db.session.add(sub)
+    db.session.commit()
+    return jsonify({"message": f"Substitute teacher assigned for {school_class.name}."}), 201
+
+
+@api.route("/admin/substitutes/<int:sub_id>", methods=["DELETE"])
+@login_required
+def api_admin_substitute_deactivate(sub_id):
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    sub = SubstituteAllocation.query.filter_by(id=sub_id, school_id=school_id).first_or_404()
+    sub.is_active = False
+    db.session.commit()
+    return jsonify({"message": "Substitute allocation deactivated."}), 200
+
+
+# -----------------------------------------------------------------------------
+# SMS & PARENT COMMUNICATION
+# -----------------------------------------------------------------------------
+
+@api.route("/admin/sms/settings", methods=["GET", "PUT"])
+@login_required
+def api_admin_sms_settings():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    if not settings:
+        settings = SMSSettings(school_id=school_id)
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == "GET":
+        return jsonify({
+            "sms_enabled": settings.sms_enabled,
+            "sender_id": settings.sender_id or "SchoolStacks",
+            "fee_reminders_enabled": settings.fee_reminders_enabled,
+            "fee_reminder_intervals": settings.fee_reminder_intervals or [7, 0, -7],
+            "fee_reminder_template": settings.fee_reminder_template,
+            "absenteeism_alerts_enabled": settings.absenteeism_alerts_enabled,
+            "absenteeism_consecutive_days": settings.absenteeism_consecutive_days or 2,
+            "absenteeism_cumulative_days": settings.absenteeism_cumulative_days or 5,
+            "absenteeism_template": settings.absenteeism_template,
+            "enable_subject_attendance": settings.enable_subject_attendance,
+            "attendance_correction_window_hours": settings.attendance_correction_window_hours or 24,
+            "is_dry_run": os.getenv("SMS_TO_DRY_RUN", "true").lower() in ("true", "1", "yes"),
+        })
+
+    data = request.get_json(silent=True) or request.form
+    if "sms_enabled" in data:
+        settings.sms_enabled = bool(data["sms_enabled"])
+    if "sender_id" in data:
+        settings.sender_id = (data["sender_id"] or "").strip()
+    if "fee_reminders_enabled" in data:
+        settings.fee_reminders_enabled = bool(data["fee_reminders_enabled"])
+    if "fee_reminder_intervals" in data:
+        settings.fee_reminder_intervals = data["fee_reminder_intervals"]
+    if "fee_reminder_template" in data:
+        settings.fee_reminder_template = data["fee_reminder_template"]
+    if "absenteeism_alerts_enabled" in data:
+        settings.absenteeism_alerts_enabled = bool(data["absenteeism_alerts_enabled"])
+    if "absenteeism_consecutive_days" in data:
+        settings.absenteeism_consecutive_days = int(data["absenteeism_consecutive_days"])
+    if "absenteeism_cumulative_days" in data:
+        settings.absenteeism_cumulative_days = int(data["absenteeism_cumulative_days"])
+    if "absenteeism_template" in data:
+        settings.absenteeism_template = data["absenteeism_template"]
+    if "enable_subject_attendance" in data:
+        settings.enable_subject_attendance = bool(data["enable_subject_attendance"])
+    if "attendance_correction_window_hours" in data:
+        settings.attendance_correction_window_hours = int(data["attendance_correction_window_hours"])
+
+    settings.updated_at = utc_now()
+    db.session.commit()
+    return jsonify({"message": "SMS settings saved successfully."}), 200
+
+
+@api.route("/admin/sms/send-test", methods=["POST"])
+@login_required
+def api_admin_sms_send_test():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    data = request.get_json(silent=True) or request.form
+    phone = (data.get("phone_number") or "").strip()
+    msg = (data.get("message") or "This is a test notification from SchoolStacks SMS integration.").strip()
+
+    if not phone:
+        return jsonify({"error": "Phone number is required."}), 400
+
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    sender_id = settings.sender_id if settings else "SchoolStacks"
+
+    result = send_school_sms(
+        school_id=school_id,
+        recipient_phone=phone,
+        message_text=msg,
+        message_type="test",
+        recipient_type="staff",
+        sender_id=sender_id,
+    )
+    return jsonify({
+        "success": result.get("success", False),
+        "status": result.get("status"),
+        "error": result.get("error"),
+        "provider_message_id": result.get("provider_message_id"),
+        "cost": result.get("cost"),
+        "dry_run": result.get("dry_run", False),
+    }), 200 if result.get("success") else 400
+
+
+@api.route("/admin/sms/history", methods=["GET"])
+@login_required
+def api_admin_sms_history():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    msg_type = request.args.get("message_type")
+    status_filter = request.args.get("status")
+
+    query = SMSMessage.query.filter_by(school_id=school_id)
+    if msg_type:
+        query = query.filter_by(message_type=msg_type)
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+
+    all_msgs = query.order_by(SMSMessage.created_at.desc()).limit(100).all()
+
+    all_school_msgs = SMSMessage.query.filter_by(school_id=school_id).all()
+    total_sent = len(all_school_msgs)
+    delivered = sum(1 for m in all_school_msgs if m.status in ("delivered", "sent"))
+    failed = sum(1 for m in all_school_msgs if m.status in ("failed", "undelivered"))
+    pending = sum(1 for m in all_school_msgs if m.status in ("pending", "queued"))
+    total_cost = sum(m.cost or 0.0 for m in all_school_msgs)
+
+    return jsonify({
+        "metrics": {
+            "total_sent": total_sent,
+            "delivered": delivered,
+            "failed": failed,
+            "pending": pending,
+            "total_cost": round(total_cost, 4),
+        },
+        "messages": [
+            {
+                "id": m.id,
+                "recipient_phone": m.recipient_phone,
+                "recipient_name": m.recipient_name,
+                "recipient_type": m.recipient_type,
+                "message_type": m.message_type,
+                "message_body": m.message_body,
+                "status": m.status,
+                "cost": m.cost,
+                "provider_message_id": m.provider_message_id,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "sent_at": m.sent_at.isoformat() if m.sent_at else None,
+            }
+            for m in all_msgs
+        ],
+    })
+
+
+@api.route("/sms/webhook", methods=["POST"])
+@api.route("/billing/webhook/sms-to", methods=["POST"])
+def api_sms_webhook():
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
+    provider_msg_id = payload.get("message_id") or payload.get("id") or payload.get("messageId")
+    status = (payload.get("status") or payload.get("delivery_status") or "delivered").lower()
+
+    if provider_msg_id:
+        msg = SMSMessage.query.filter_by(provider_message_id=str(provider_msg_id)).first()
+        if msg:
+            msg.status = status
+            db.session.add(
+                SMSDeliveryEvent(
+                    sms_message_id=msg.id,
+                    event_type=status,
+                    provider_status=status,
+                    payload=payload,
+                )
+            )
+            db.session.commit()
+
+    return jsonify({"status": "received", "provider_message_id": provider_msg_id}), 200
+
+
+def _get_due_fee_reminders(school_id, filter_due_only=False):
+    school = db.session.get(School, school_id)
+    school_name = school.name if school else "SchoolStacks"
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    template = settings.fee_reminder_template if (settings and settings.fee_reminder_template) else (
+        "Dear Parent/Guardian, this is a reminder from {school_name} that the outstanding fee balance for {student_name} is ZMW {balance:.2f}. Due date: {due_date}. Please pay promptly."
+    )
+
+    today = datetime.date.today()
+    terms = Term.query.filter_by(school_id=school_id, is_active=True).all()
+    if not terms:
+        terms = Term.query.filter_by(school_id=school_id).order_by(Term.start_date.desc()).limit(1).all()
+
+    students = Student.query.filter_by(school_id=school_id, status="active").all()
+    class_map = {c.id: c.name for c in SchoolClass.query.filter_by(school_id=school_id).all()}
+
+    reminders = []
+    cooldown_cutoff = utc_now() - datetime.timedelta(days=3)
+
+    for stu in students:
+        if not stu.class_id:
+            continue
+
+        parent = None
+        if stu.parent_id:
+            parent = db.session.get(Parent, stu.parent_id)
+        if not parent:
+            psl = ParentStudent.query.filter_by(school_id=school_id, student_id=stu.id).first()
+            if psl:
+                parent = db.session.get(Parent, psl.parent_id)
+
+        phone = parent.phone if parent else None
+        if not phone:
+            continue
+
+        try:
+            norm_phone = normalize_phone_number(phone)
+        except ValueError:
+            continue
+
+        for t in terms:
+            fee_struct = FeeStructure.query.filter_by(
+                school_id=school_id, class_id=stu.class_id, term_id=t.id
+            ).first()
+            if not fee_struct:
+                continue
+
+            balance = calculate_balance(stu.id, t.id, school_id)
+            if balance <= 0:
+                continue  # Paid or zero balance strictly excluded
+
+            due_date = t.start_date or today
+            days_diff = (today - due_date).days
+
+            # Determine stage
+            if days_diff < 0:
+                stage = "Upcoming Reminder"
+            elif days_diff == 0:
+                stage = "Due Date Reminder"
+            else:
+                stage = "Overdue Notice"
+
+            if filter_due_only:
+                # 7 days before, due date (0), or 7 days after
+                if days_diff not in (-7, 0, 7):
+                    continue
+
+            # Check cooldown
+            recent = SMSMessage.query.filter(
+                SMSMessage.school_id == school_id,
+                SMSMessage.recipient_phone == norm_phone,
+                SMSMessage.message_type == "fee_reminder",
+                SMSMessage.created_at >= cooldown_cutoff,
+            ).first()
+
+            if recent:
+                continue
+
+            msg_text = template.format(
+                school_name=school_name,
+                student_name=f"{stu.first_name} {stu.last_name}",
+                balance=balance,
+                due_date=due_date.isoformat(),
+            )
+
+            reminders.append({
+                "student_id": stu.id,
+                "student_name": f"{stu.first_name} {stu.last_name}",
+                "class_name": class_map.get(stu.class_id, "—"),
+                "parent_id": parent.id if parent else None,
+                "parent_name": f"{parent.first_name} {parent.last_name}" if parent else "Parent",
+                "phone": norm_phone,
+                "total_fee": fee_struct.amount,
+                "balance": balance,
+                "due_date": due_date.isoformat(),
+                "stage": stage,
+                "message": msg_text,
+            })
+
+    return reminders
+
+
+@api.route("/admin/sms/fee-reminders/preview", methods=["GET"])
+@login_required
+def api_admin_fee_reminders_preview():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    reminders = _get_due_fee_reminders(school_id, filter_due_only=False)
+    return jsonify({
+        "count": len(reminders),
+        "total_outstanding": sum(r["balance"] for r in reminders),
+        "reminders": reminders,
+    })
+
+
+@api.route("/admin/sms/fee-reminders/run", methods=["POST"])
+@login_required
+def api_admin_fee_reminders_run():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    sender_id = settings.sender_id if settings else "SchoolStacks"
+
+    reminders = _get_due_fee_reminders(school_id, filter_due_only=False)
+    sent_count = 0
+    failed_count = 0
+
+    for r in reminders:
+        res = send_school_sms(
+            school_id=school_id,
+            recipient_phone=r["phone"],
+            message_text=r["message"],
+            message_type="fee_reminder",
+            recipient_name=r["parent_name"],
+            recipient_type="parent",
+            sender_id=sender_id,
+        )
+        if res.get("success"):
+            sent_count += 1
+        else:
+            failed_count += 1
+
+    return jsonify({
+        "message": f"Fee reminders executed: {sent_count} sent, {failed_count} failed/skipped.",
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+    })
+
+
+def _analyze_absenteeism(school_id):
+    today = datetime.date.today()
+    thirty_days_ago = today - datetime.timedelta(days=30)
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    school = db.session.get(School, school_id)
+    school_name = school.name if school else "SchoolStacks"
+
+    template = settings.absenteeism_template if (settings and settings.absenteeism_template) else (
+        "Dear Parent/Guardian, {student_name} has {days} unexplained absences from {school_name}. Please contact the school."
+    )
+
+    students = Student.query.filter_by(school_id=school_id, status="active").all()
+    class_map = {c.id: c.name for c in SchoolClass.query.filter_by(school_id=school_id).all()}
+    results = []
+
+    for stu in students:
+        records = (
+            Attendance.query.filter(
+                Attendance.school_id == school_id,
+                Attendance.student_id == stu.id,
+                Attendance.date >= thirty_days_ago,
+                Attendance.date <= today,
+            )
+            .order_by(Attendance.date.desc())
+            .all()
+        )
+
+        cumulative_absent = sum(1 for r in records if r.status == "Absent")
+
+        consecutive_absent = 0
+        for r in records:
+            if r.date.weekday() >= 5:  # skip weekend records if any
+                continue
+            if r.status == "Absent":
+                consecutive_absent += 1
+            elif r.status in ("Present", "Late", "Excused", "Sick"):
+                break
+
+        if consecutive_absent < 2 and cumulative_absent < 5:
+            continue
+
+        parent = None
+        if stu.parent_id:
+            parent = db.session.get(Parent, stu.parent_id)
+        if not parent:
+            psl = ParentStudent.query.filter_by(school_id=school_id, student_id=stu.id).first()
+            if psl:
+                parent = db.session.get(Parent, psl.parent_id)
+
+        phone = parent.phone if parent else None
+        norm_phone = None
+        if phone:
+            try:
+                norm_phone = normalize_phone_number(phone)
+            except ValueError:
+                norm_phone = None
+
+        level = "Notice"
+        if consecutive_absent >= 3:
+            level = "Urgent Follow-up"
+        elif cumulative_absent >= 5:
+            level = "Admin Intervention"
+
+        msg_text = template.format(
+            school_name=school_name,
+            student_name=f"{stu.first_name} {stu.last_name}",
+            days=f"{consecutive_absent} consecutive" if consecutive_absent >= 2 else f"{cumulative_absent} cumulative",
+        )
+
+        results.append({
+            "student_id": stu.id,
+            "student_name": f"{stu.first_name} {stu.last_name}",
+            "class_id": stu.class_id,
+            "class_name": class_map.get(stu.class_id, "—"),
+            "parent_id": parent.id if parent else None,
+            "parent_name": f"{parent.first_name} {parent.last_name}" if parent else "Parent",
+            "phone": norm_phone or phone,
+            "consecutive_absences": consecutive_absent,
+            "cumulative_absences": cumulative_absent,
+            "level": level,
+            "flagged_for_intervention": cumulative_absent >= 5,
+            "message": msg_text,
+        })
+
+    return results
+
+
+@api.route("/admin/sms/absenteeism/preview", methods=["GET"])
+@login_required
+def api_admin_absenteeism_preview():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    data = _analyze_absenteeism(school_id)
+    return jsonify({"count": len(data), "alerts": data})
+
+
+@api.route("/admin/sms/absenteeism/run", methods=["POST"])
+@login_required
+def api_admin_absenteeism_run():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+    settings = SMSSettings.query.filter_by(school_id=school_id).first()
+    sender_id = settings.sender_id if settings else "SchoolStacks"
+
+    data = _analyze_absenteeism(school_id)
+    sent_count = 0
+    flagged_count = 0
+    seven_days_ago = utc_now() - datetime.timedelta(days=7)
+
+    for item in data:
+        if item.get("flagged_for_intervention"):
+            existing_int = AbsenteeismIntervention.query.filter_by(
+                school_id=school_id, student_id=item["student_id"], status="flagged"
+            ).first()
+            if not existing_int:
+                interv = AbsenteeismIntervention(
+                    school_id=school_id,
+                    student_id=item["student_id"],
+                    class_id=item.get("class_id"),
+                    trigger_type="cumulative_5",
+                    consecutive_absences=item["consecutive_absences"],
+                    cumulative_absences=item["cumulative_absences"],
+                    status="flagged",
+                    flagged_date=datetime.date.today(),
+                )
+                db.session.add(interv)
+                flagged_count += 1
+
+        if item.get("phone"):
+            recent = SMSMessage.query.filter(
+                SMSMessage.school_id == school_id,
+                SMSMessage.recipient_phone == item["phone"],
+                SMSMessage.message_type == "absenteeism",
+                SMSMessage.created_at >= seven_days_ago,
+            ).first()
+            if not recent:
+                res = send_school_sms(
+                    school_id=school_id,
+                    recipient_phone=item["phone"],
+                    message_text=item["message"],
+                    message_type="absenteeism",
+                    recipient_name=item["parent_name"],
+                    recipient_type="parent",
+                    sender_id=sender_id,
+                )
+                if res.get("success"):
+                    sent_count += 1
+
+    db.session.commit()
+    return jsonify({
+        "message": f"Absenteeism sweep complete: {sent_count} SMS alerts dispatched, {flagged_count} new intervention cases flagged.",
+        "sent_count": sent_count,
+        "flagged_count": flagged_count,
+    })
+
+
+@api.route("/admin/calls", methods=["GET", "POST"])
+@login_required
+def api_admin_calls():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    school_id = get_current_school_id()
+
+    if request.method == "GET":
+        student_id = request.args.get("student_id", type=int)
+        query = ParentCommunicationLog.query.filter_by(school_id=school_id)
+        if student_id:
+            query = query.filter_by(student_id=student_id)
+
+        logs = query.order_by(ParentCommunicationLog.created_at.desc()).limit(100).all()
+        students_map = {s.id: f"{s.first_name} {s.last_name}" for s in Student.query.filter_by(school_id=school_id).all()}
+        parents_map = {p.id: f"{p.first_name} {p.last_name}" for p in Parent.query.filter_by(school_id=school_id).all()}
+
+        return jsonify({
+            "calls": [
+                {
+                    "id": c.id,
+                    "student_id": c.student_id,
+                    "student_name": students_map.get(c.student_id, "—"),
+                    "parent_id": c.parent_id,
+                    "parent_name": parents_map.get(c.parent_id, "Parent"),
+                    "phone_called": c.phone_called,
+                    "channel": c.channel,
+                    "reason": c.reason,
+                    "status": c.status,
+                    "remarks": c.remarks,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                }
+                for c in logs
+            ]
+        })
+
+    data = request.get_json(silent=True) or request.form
+    try:
+        student_id = int(data.get("student_id"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Student ID is required."}), 400
+
+    phone_called = (data.get("phone_called") or "").strip()
+    outcome = (data.get("outcome") or data.get("status") or "Answered").strip()
+    reason = (data.get("reason") or "Follow-up").strip()
+    remarks = (data.get("remarks") or "").strip()
+    parent_id = data.get("parent_id")
+
+    log_entry = ParentCommunicationLog(
+        school_id=school_id,
+        student_id=student_id,
+        parent_id=parent_id if parent_id else None,
+        staff_id=current_user.id,
+        channel="call",
+        direction="outbound",
+        phone_called=phone_called,
+        reason=reason,
+        status=outcome,
+        remarks=remarks,
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+
+    return jsonify({"message": "Call logged successfully.", "id": log_entry.id}), 201
+
+
+@api.route("/cron/daily-sms-tasks", methods=["GET", "POST"])
+def api_cron_daily_sms_tasks():
+    expected_secret = (current_app.config.get("CRON_SECRET") or os.getenv("CRON_SECRET", "")).strip()
+    if expected_secret:
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.replace("Bearer ", "").strip() if auth_header.startswith("Bearer ") else ""
+        query_key = request.args.get("key", "").strip()
+        if token != expected_secret and query_key != expected_secret:
+            return jsonify({"error": "Unauthorized"}), 401
+
+    schools = School.query.all()
+    results = []
+
+    for s in schools:
+        settings = SMSSettings.query.filter_by(school_id=s.id).first()
+        if not settings or not settings.sms_enabled:
+            continue
+
+        fee_reminders_sent = 0
+        if settings.fee_reminders_enabled:
+            reminders = _get_due_fee_reminders(s.id, filter_due_only=True)
+            for r in reminders:
+                res = send_school_sms(
+                    school_id=s.id,
+                    recipient_phone=r["phone"],
+                    message_text=r["message"],
+                    message_type="fee_reminder",
+                    recipient_name=r["parent_name"],
+                    recipient_type="parent",
+                    sender_id=settings.sender_id or "SchoolStacks",
+                )
+                if res.get("success"):
+                    fee_reminders_sent += 1
+
+        absenteeism_sent = 0
+        if settings.absenteeism_alerts_enabled:
+            alerts = _analyze_absenteeism(s.id)
+            seven_days_ago = utc_now() - datetime.timedelta(days=7)
+            for a in alerts:
+                if a.get("phone"):
+                    recent = SMSMessage.query.filter(
+                        SMSMessage.school_id == s.id,
+                        SMSMessage.recipient_phone == a["phone"],
+                        SMSMessage.message_type == "absenteeism",
+                        SMSMessage.created_at >= seven_days_ago,
+                    ).first()
+                    if not recent:
+                        res = send_school_sms(
+                            school_id=s.id,
+                            recipient_phone=a["phone"],
+                            message_text=a["message"],
+                            message_type="absenteeism",
+                            recipient_name=a["parent_name"],
+                            recipient_type="parent",
+                            sender_id=settings.sender_id or "SchoolStacks",
+                        )
+                        if res.get("success"):
+                            absenteeism_sent += 1
+
+        results.append({
+            "school_id": s.id,
+            "school_name": s.name,
+            "fee_reminders_sent": fee_reminders_sent,
+            "absenteeism_sent": absenteeism_sent,
+        })
+
+    return jsonify({"status": "completed", "schools_processed": len(results), "summary": results}), 200
+
