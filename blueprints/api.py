@@ -62,7 +62,17 @@ from utils import (
     handle_superadmin_recovery,
 )
 from services.lipila import LipilaClient, LipilaError, normalize_zambia_phone
-from services.sms_service import send_school_sms, normalize_phone_number, SMSToClient
+from services.sms_service import (
+    send_school_sms,
+    send_sms,
+    send_test_sms,
+    normalise_phone_number,
+    normalize_phone_number,
+    EasySendSMSClient,
+    get_sms_balance,
+    process_delivery_report,
+    SMSToClient,
+)
 from blueprints.billing import (
     _authorize_student_fee_access,
     _settle_subscription,
@@ -6530,7 +6540,8 @@ def api_admin_sms_settings():
             "absenteeism_template": settings.absenteeism_template,
             "enable_subject_attendance": settings.enable_subject_attendance,
             "attendance_correction_window_hours": settings.attendance_correction_window_hours or 24,
-            "is_dry_run": os.getenv("SMS_TO_DRY_RUN", "true").lower() in ("true", "1", "yes"),
+            "provider": "EasySendSMS",
+            "is_dry_run": os.getenv("EASYSENDSMS_DRY_RUN", os.getenv("SMS_TO_DRY_RUN", "true")).lower() in ("true", "1", "yes"),
         })
 
     data = request.get_json(silent=True) or request.form
@@ -6560,6 +6571,17 @@ def api_admin_sms_settings():
     settings.updated_at = utc_now()
     db.session.commit()
     return jsonify({"message": "SMS settings saved successfully."}), 200
+
+
+@api.route("/admin/sms/balance", methods=["GET"])
+@login_required
+def api_admin_sms_balance():
+    err = _require_role("admin", "superadmin")
+    if err:
+        return err
+    force = request.args.get("refresh", "").lower() in ("true", "1")
+    bal_data = get_sms_balance(force_refresh=force)
+    return jsonify(bal_data), 200
 
 
 @api.route("/admin/sms/send-test", methods=["POST"])
@@ -6650,28 +6672,44 @@ def api_admin_sms_history():
     })
 
 
-@api.route("/sms/webhook", methods=["POST"])
-@api.route("/billing/webhook/sms-to", methods=["POST"])
-def api_sms_webhook():
-    payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    provider_msg_id = payload.get("message_id") or payload.get("id") or payload.get("messageId")
-    status = (payload.get("status") or payload.get("delivery_status") or "delivered").lower()
+@api.route("/sms/easysendsms/dlr", methods=["GET", "POST", "HEAD"])
+@api.route("/api/sms/easysendsms/dlr", methods=["GET", "POST", "HEAD"])
+@api.route("/sms/webhook", methods=["GET", "POST", "HEAD"])
+@api.route("/api/sms/webhook", methods=["GET", "POST", "HEAD"])
+@api.route("/billing/webhook/sms-to", methods=["GET", "POST", "HEAD"])
+def api_easysendsms_dlr():
+    # EasySendSMS uses unauthenticated GET and HEAD to validate webhook URL
+    if request.method in ("GET", "HEAD"):
+        return "OK", 200, {"Content-Type": "text/plain"}
 
-    if provider_msg_id:
-        msg = SMSMessage.query.filter_by(provider_message_id=str(provider_msg_id)).first()
-        if msg:
-            msg.status = status
-            db.session.add(
-                SMSDeliveryEvent(
-                    sms_message_id=msg.id,
-                    event_type=status,
-                    provider_status=status,
-                    payload=payload,
-                )
-            )
-            db.session.commit()
+    # Optional webhook secret verification if configured
+    expected_secret = os.getenv("EASYSENDSMS_WEBHOOK_SECRET", "").strip()
+    if expected_secret:
+        provided_secret = (
+            request.args.get("secret")
+            or request.headers.get("X-Webhook-Secret")
+            or request.headers.get("X-Easysendsms-Secret")
+            or ""
+        ).strip()
+        if provided_secret and provided_secret != expected_secret:
+            logger.warning("EasySendSMS DLR secret mismatch.")
+            return jsonify({"error": "Unauthorized webhook callback."}), 401
 
-    return jsonify({"status": "received", "provider_message_id": provider_msg_id}), 200
+    # Extract raw body (URL-encoded or JSON)
+    raw_text = request.get_data(as_text=True)
+    if raw_text and ("=" in raw_text or "&" in raw_text):
+        result = process_delivery_report(raw_text)
+    elif request.form:
+        result = process_delivery_report(request.form.to_dict())
+    else:
+        json_payload = request.get_json(silent=True) or {}
+        result = process_delivery_report(json_payload)
+
+    return jsonify({
+        "status": "received",
+        "provider": "EasySendSMS",
+        "result": result,
+    }), 200
 
 
 def _get_due_fee_reminders(school_id, filter_due_only=False):
@@ -6786,6 +6824,7 @@ def api_admin_fee_reminders_preview():
     reminders = _get_due_fee_reminders(school_id, filter_due_only=False)
     return jsonify({
         "count": len(reminders),
+        "due_reminders_count": len(reminders),
         "total_outstanding": sum(r["balance"] for r in reminders),
         "reminders": reminders,
     })

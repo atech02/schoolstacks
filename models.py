@@ -182,6 +182,10 @@ class Student(db.Model):
     results            = db.relationship("Result",     backref="student", lazy=True)
     school             = db.relationship("School",     backref="students")
 
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
 
 class Teacher(db.Model):
     __tablename__ = "teachers"
@@ -229,6 +233,10 @@ class Parent(db.Model):
 
     school = db.relationship("School", backref="parents")
     user   = db.relationship("User")
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
 
 
 class ParentStudent(db.Model):
@@ -613,6 +621,7 @@ class SMSSettings(db.Model):
     absenteeism_custom_message         = db.Column(db.Text, nullable=True)
     enable_subject_attendance          = db.Column(db.Boolean, default=False)
     attendance_correction_window_hours = db.Column(db.Integer, default=24)
+    provider                           = db.Column(db.String(50), default="easysendsms")
     created_at                         = db.Column(db.DateTime, default=utc_now)
     updated_at                         = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -716,6 +725,7 @@ class SMSMessage(db.Model):
     retry_count         = db.Column(db.Integer, default=0)
     sent_at             = db.Column(db.DateTime, nullable=True)
     delivered_at        = db.Column(db.DateTime, nullable=True)
+    provider            = db.Column(db.String(50), default="easysendsms")
     idempotency_key     = db.Column(db.String(100), unique=True, nullable=True, index=True)
     created_at          = db.Column(db.DateTime, default=utc_now, index=True)
     updated_at          = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
@@ -738,7 +748,7 @@ class SMSMessage(db.Model):
             return self.error_message
         if key == "dry_run":
             import os
-            return os.getenv("SMS_TO_DRY_RUN", "true").lower() in ("true", "1", "yes")
+            return os.getenv("EASYSENDSMS_DRY_RUN", os.getenv("SMS_TO_DRY_RUN", "true")).lower() in ("true", "1", "yes")
         return getattr(self, key, None)
 
     def get(self, key, default=None):
@@ -750,7 +760,7 @@ class SMSMessage(db.Model):
 
 
 class SMSDeliveryEvent(db.Model):
-    """Raw delivery event callbacks received from SMS.to."""
+    """Raw delivery event callbacks received from EasySendSMS DLR."""
     __tablename__ = "sms_delivery_events"
 
     id                  = db.Column(db.Integer, primary_key=True)

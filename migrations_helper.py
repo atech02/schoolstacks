@@ -90,6 +90,12 @@ REQUIRED_COLUMNS = {
         ("is_archived", "BOOLEAN DEFAULT FALSE"),
         ("file_size", "INTEGER"),
     ],
+    "sms_settings": [
+        ("provider", "VARCHAR(50) DEFAULT 'easysendsms'"),
+    ],
+    "sms_messages": [
+        ("provider", "VARCHAR(50) DEFAULT 'easysendsms'"),
+    ],
 }
 
 

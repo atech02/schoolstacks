@@ -215,6 +215,7 @@ export const AdminPortal: React.FC = () => {
   // ── SMS & Parent Communication Tab State ──
   const [smsSettings, setSmsSettings] = useState<any>(null);
   const [smsHistory, setSmsHistory] = useState<any>(null);
+  const [smsBalance, setSmsBalance] = useState<any>(null);
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsSubTab, setSmsSubTab] = useState<'settings' | 'reminders' | 'absenteeism' | 'history'>('settings');
   const [testSmsModal, setTestSmsModal] = useState<any>(null);
@@ -346,6 +347,15 @@ export const AdminPortal: React.FC = () => {
       setSmsHistory(res);
     } catch (err: any) {
       console.error('Error loading SMS history:', err);
+    }
+  }, []);
+
+  const loadSmsBalance = useCallback(async (refresh = false) => {
+    try {
+      const res = await apiFetch(`/api/admin/sms/balance${refresh ? '?refresh=true' : ''}`);
+      setSmsBalance(res);
+    } catch (err: any) {
+      console.error('Error loading SMS balance:', err);
     }
   }, []);
 
@@ -503,6 +513,7 @@ export const AdminPortal: React.FC = () => {
     } else if (activeTab === 'sms') {
       loadSmsSettings();
       loadSmsHistory();
+      loadSmsBalance();
     } else if (activeTab === 'approvals') {
       loadApprovals();
       loadResultsOverview(resExamFilter, resClassFilter, resSubjFilter);
@@ -2974,32 +2985,46 @@ export const AdminPortal: React.FC = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          SMS & PARENT COMMUNICATION (SMS.TO) TAB
+          SMS & PARENT COMMUNICATION (EASYSENDSMS) TAB
          ══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'sms' && (
         <>
           <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
               <div className="d-flex align-items-center gap-2 mb-1">
-                <h2 className="h4 fw-bold text-dark mb-0">SMS & Parent Communication (SMS.to)</h2>
+                <h2 className="h4 fw-bold text-dark mb-0">SMS & Parent Communication (EasySendSMS)</h2>
                 {smsSettings?.is_dry_run && (
                   <span className="badge bg-info-subtle text-info-emphasis border border-info px-2 py-1" style={{ borderRadius: '0.5rem' }}>
                     <i className="bi bi-shield-check me-1" /> Dry-Run / Test Mode Active
                   </span>
                 )}
+                <span className="badge bg-primary-subtle text-primary border border-primary px-2 py-1" style={{ borderRadius: '0.5rem' }}>
+                  EasySendSMS REST API
+                </span>
               </div>
               <p className="text-muted small mb-0">
-                Automated parent communication engine powered by official SMS.to API. Manages fee reminders, repeated absenteeism alerts, and direct guardian call logging.
+                Automated parent communication engine powered by official EasySendSMS REST API. Manages fee reminders, repeated absenteeism alerts, and direct guardian call logging.
               </p>
             </div>
             <div className="d-flex gap-2">
+              <Button
+                variant="outline"
+                icon="bi-arrow-clockwise"
+                onClick={() => {
+                  loadSmsBalance(true);
+                  loadSmsHistory();
+                  loadSmsSettings();
+                }}
+              >
+                Refresh
+              </Button>
               <Button
                 variant="accent"
                 icon="bi-send-fill"
                 onClick={() =>
                   setTestSmsModal({
                     phone: '',
-                    message: 'SchoolStacks SMS Test: Parent notification system is fully operational.',
+                    message: 'SchoolStacks SMS Test: EasySendSMS automated parent notification gateway is fully operational.',
                   })
                 }
               >
@@ -3009,6 +3034,14 @@ export const AdminPortal: React.FC = () => {
           </div>
 
           <div className="row g-3 mb-4">
+            <div className="col-sm-6 col-xl-3">
+              <StatCard
+                icon="bi-wallet2"
+                label="SMS Credit Balance"
+                value={`${smsBalance?.currency || 'EUR'} ${Number(smsBalance?.balance || 0).toFixed(2)}`}
+                variant="blue"
+              />
+            </div>
             <div className="col-sm-6 col-xl-3">
               <StatCard
                 icon="bi-send-check-fill"
@@ -3031,14 +3064,6 @@ export const AdminPortal: React.FC = () => {
                 label="Failed / Undelivered"
                 value={smsHistory?.metrics?.failed || 0}
                 variant="mustard"
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-cash-coin"
-                label="Total SMS Spend"
-                value={`ZMW ${Number(smsHistory?.metrics?.total_cost || 0).toFixed(2)}`}
-                variant="blue"
               />
             </div>
           </div>
@@ -3086,7 +3111,7 @@ export const AdminPortal: React.FC = () => {
 
           {/* Sub-tab 1: Settings */}
           {smsSubTab === 'settings' && (
-            <Card title="SMS.to Integration & Automated Dispatch Configuration" subtitle="Configure school Sender ID, scheduling thresholds, and message templates.">
+            <Card title="EasySendSMS Integration & Automated Dispatch Configuration" subtitle="Configure school Sender ID, scheduling thresholds, and message templates.">
               {smsLoading ? (
                 <LoadingState message="Loading SMS settings..." />
               ) : (
@@ -3119,7 +3144,7 @@ export const AdminPortal: React.FC = () => {
                         </label>
                       </div>
                       <small className="text-muted d-block mt-1">
-                        When enabled, automated fee reminders and absenteeism notices are sent via SMS.to.
+                        When enabled, automated fee reminders and absenteeism notices are sent via EasySendSMS.
                       </small>
                     </div>
 
@@ -3133,7 +3158,7 @@ export const AdminPortal: React.FC = () => {
                         value={smsSettings?.sender_id || ''}
                         onChange={(e) => setSmsSettings({ ...smsSettings, sender_id: e.target.value })}
                       />
-                      <small className="text-muted">Maximum 11 alphanumeric characters approved on SMS.to.</small>
+                      <small className="text-muted">Maximum 11 alphanumeric characters approved on EasySendSMS.</small>
                     </div>
 
                     <div className="col-12"><hr /></div>
