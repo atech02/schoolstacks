@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout, NavItem } from '../layouts/AppLayout';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import {
   AlertBanner,
   Badge,
@@ -13,21 +14,28 @@ import {
   Modal,
   StatCard,
 } from '../components/ui';
+import {
+  DashboardHeader,
+  StatisticCard as ModernStatCard,
+  DonutChart,
+  QuickActionGrid,
+} from '../components/dashboard';
 
 const PARENT_NAV: NavItem[] = [
-  { id: 'overview', label: 'Children Overview', icon: 'bi-people-fill' },
-  { id: 'fees', label: 'Pay School Fees', icon: 'bi-credit-card-2-front-fill' },
-  { id: 'results', label: 'Exam Results & Reports', icon: 'bi-award-fill' },
-  { id: 'timetable', label: 'Child Timetable', icon: 'bi-calendar3-week' },
-  { id: 'exams', label: 'Examination Schedule', icon: 'bi-calendar-event-fill' },
-  { id: 'assignments', label: 'Homework & Assignments', icon: 'bi-clipboard-check-fill' },
-  { id: 'materials', label: 'Study Materials', icon: 'bi-folder-symlink-fill' },
-  { id: 'attendance', label: 'Attendance History', icon: 'bi-calendar-check-fill' },
-  { id: 'announcements', label: 'School Announcements', icon: 'bi-megaphone-fill' },
+  { id: 'overview', label: 'Children Overview', icon: 'bi-people-fill', section: 'FAMILY PORTAL' },
+  { id: 'results', label: 'Exam Results & Reports', icon: 'bi-award-fill', section: 'STUDENT PROGRESS' },
+  { id: 'attendance', label: 'Attendance History', icon: 'bi-calendar-check-fill', section: 'STUDENT PROGRESS' },
+  { id: 'timetable', label: 'Child Timetable', icon: 'bi-calendar3-week', section: 'STUDENT PROGRESS' },
+  { id: 'exams', label: 'Examination Schedule', icon: 'bi-calendar-event-fill', section: 'STUDENT PROGRESS' },
+  { id: 'assignments', label: 'Homework & Assignments', icon: 'bi-clipboard-check-fill', section: 'STUDENT PROGRESS' },
+  { id: 'materials', label: 'Study Materials', icon: 'bi-folder-symlink-fill', section: 'STUDENT PROGRESS' },
+  { id: 'fees', label: 'Pay School Fees', icon: 'bi-credit-card-2-front-fill', section: 'FINANCE' },
+  { id: 'announcements', label: 'School Announcements', icon: 'bi-megaphone-fill', section: 'COMMUNICATION' },
 ];
 
 export const ParentPortal: React.FC = () => {
   const navigate = useNavigate();
+  const { user, school } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [data, setData] = useState<any>(null);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -140,36 +148,180 @@ export const ParentPortal: React.FC = () => {
         </Card>
       ) : (
         <>
+          <DashboardHeader
+            title="Guardian & Family Portal"
+            userName={data?.parent?.first_name ? `${data.parent.first_name} ${data.parent.last_name}` : user?.username || 'Parent'}
+            userRole="Guardian Portal"
+            schoolName={school?.name || child.school_name || 'SchoolStacks Academy'}
+            academicTerm={child.terms?.[0]?.name || 'Term 1'}
+            academicYear="2026"
+            badgeText={`Viewing: ${child.first_name} ${child.last_name}`}
+            badgeVariant="gold"
+            quickStats={[
+              {
+                label: 'Class',
+                value: child.class_name,
+                icon: 'bi-door-open',
+              },
+              {
+                label: 'Tuition Balance',
+                value: `K${Number(child.fee_balances?.[0]?.balance || 0).toFixed(0)}`,
+                icon: 'bi-wallet2',
+              },
+              {
+                label: 'Enrolled Children',
+                value: children.length,
+                icon: 'bi-people',
+              },
+            ]}
+            actions={
+              Number(child.fee_balances?.[0]?.balance || 0) > 0 ? (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  icon="bi-phone"
+                  onClick={() => {
+                    const b = child.fee_balances?.[0];
+                    if (b) {
+                      setCheckoutItem({
+                        studentId: child.id,
+                        studentName: `${child.first_name} ${child.last_name}`,
+                        termId: b.term_id,
+                        termName: b.term_name,
+                        balance: b.balance,
+                      });
+                      setPayAmount(String(b.balance));
+                    }
+                  }}
+                >
+                  Pay Child Fees
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon="bi-award"
+                  onClick={() => setActiveTab('results')}
+                >
+                  View Reports
+                </Button>
+              )
+            }
+          />
+
+          {/* Child Switcher Pills (If multiple children linked) */}
+          {children.length > 1 && (
+            <div className="card border-0 mb-4 bg-white shadow-sm p-2 rounded-3">
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <span className="small fw-bold text-muted ps-2">Select Student:</span>
+                {children.map((c: any) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`btn btn-sm rounded-pill fw-semibold ${
+                      child.id === c.id
+                        ? 'btn-primary px-3 shadow-sm'
+                        : 'btn-outline-secondary px-3 border-0'
+                    }`}
+                    onClick={() => setSelectedChildId(c.id)}
+                  >
+                    <i className="bi bi-person-fill me-1" />
+                    {c.first_name} ({c.class_name})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions Grid */}
+          <div className="mb-4">
+            <QuickActionGrid
+              columns={4}
+              actions={[
+                {
+                  icon: 'bi-credit-card-2-front-fill',
+                  label: 'Pay School Fees',
+                  description: 'Mobile money online checkout',
+                  color: '#D97706',
+                  badge: Number(child.fee_balances?.[0]?.balance || 0) > 0 ? `K${Number(child.fee_balances?.[0]?.balance || 0).toFixed(0)}` : undefined,
+                  onClick: () => setActiveTab('fees'),
+                },
+                {
+                  icon: 'bi-award-fill',
+                  label: 'Academic Results',
+                  description: 'Term marks & PDF report card',
+                  color: '#002583',
+                  onClick: () => setActiveTab('results'),
+                },
+                {
+                  icon: 'bi-calendar3-week',
+                  label: 'Child Timetable',
+                  description: 'Weekly subjects & periods',
+                  color: '#7C3AED',
+                  onClick: () => setActiveTab('timetable'),
+                },
+                {
+                  icon: 'bi-calendar-check-fill',
+                  label: 'Attendance History',
+                  description: 'Daily presence & absences',
+                  color: '#059669',
+                  onClick: () => setActiveTab('attendance'),
+                },
+              ]}
+            />
+          </div>
+
+          {/* Modern Statistic Cards */}
           <div className="row g-3 mb-4">
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-person-badge-fill"
-                label="Selected Child"
+                label="Active Student"
                 value={`${child.first_name} ${child.last_name}`}
                 variant="blue"
+                trend={{
+                  text: `Admission: ${child.admission_no || '-'}`,
+                  positive: true,
+                }}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-door-open-fill"
                 label="Enrolled Class"
                 value={child.class_name}
+                variant="purple"
+                trend={{
+                  text: child.class_teacher_name ? `Class Teacher: ${child.class_teacher_name}` : 'Enrolled',
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('timetable')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-wallet2"
-                label="Outstanding Balance"
+                label="Outstanding Fees"
                 value={`K${Number(child.fee_balances?.[0]?.balance || 0).toFixed(2)}`}
-                variant="mustard"
-                accentTop
+                variant={Number(child.fee_balances?.[0]?.balance || 0) > 0 ? 'rose' : 'emerald'}
+                trend={{
+                  text: Number(child.fee_balances?.[0]?.balance || 0) > 0 ? 'Payment Outstanding' : 'Fees Cleared',
+                  positive: Number(child.fee_balances?.[0]?.balance || 0) <= 0,
+                }}
+                onClick={() => setActiveTab('fees')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-calendar2-check-fill"
                 label="Attendance Logs"
                 value={child.attendance?.length || 0}
+                variant="emerald"
+                trend={{
+                  text: `${child.attendance?.filter((a: any) => a.status === 'Present').length || 0} Present Days`,
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('attendance')}
               />
             </div>
           </div>

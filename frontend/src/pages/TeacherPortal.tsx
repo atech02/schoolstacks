@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppLayout, NavItem } from '../layouts/AppLayout';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import {
   AlertBanner,
   Badge,
@@ -12,18 +13,25 @@ import {
   Modal,
   StatCard,
 } from '../components/ui';
+import {
+  DashboardHeader,
+  StatisticCard as ModernStatCard,
+  DonutChart,
+  QuickActionGrid,
+} from '../components/dashboard';
 
 const TEACHER_NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Teacher Dashboard', icon: 'bi-speedometer2' },
-  { id: 'timetable', label: 'My Timetable', icon: 'bi-calendar3-week' },
-  { id: 'attendance', label: 'Mark Attendance', icon: 'bi-calendar2-check-fill' },
-  { id: 'results', label: 'Enter Exam Marks', icon: 'bi-journal-check' },
-  { id: 'assignments', label: 'Assignments & Grading', icon: 'bi-clipboard2-check-fill' },
-  { id: 'materials', label: 'Study Materials', icon: 'bi-folder-symlink-fill' },
-  { id: 'announcements', label: 'School Announcements', icon: 'bi-megaphone-fill' },
+  { id: 'dashboard', label: 'Teacher Dashboard', icon: 'bi-speedometer2', section: 'OVERVIEW' },
+  { id: 'attendance', label: 'Mark Attendance', icon: 'bi-calendar2-check-fill', section: 'CLASSROOM' },
+  { id: 'results', label: 'Enter Exam Marks', icon: 'bi-journal-check', section: 'CLASSROOM' },
+  { id: 'timetable', label: 'My Timetable', icon: 'bi-calendar3-week', section: 'ACADEMICS' },
+  { id: 'assignments', label: 'Assignments & Grading', icon: 'bi-clipboard2-check-fill', section: 'ACADEMICS' },
+  { id: 'materials', label: 'Study Materials', icon: 'bi-folder-symlink-fill', section: 'ACADEMICS' },
+  { id: 'announcements', label: 'School Announcements', icon: 'bi-megaphone-fill', section: 'COMMUNICATION' },
 ];
 
 export const TeacherPortal: React.FC = () => {
+  const { user, school } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -328,157 +336,257 @@ export const TeacherPortal: React.FC = () => {
 
       {activeTab === 'dashboard' && (
         <>
-          {data?.assigned_class && (
-            <div
-              className="card border-0 shadow-sm mb-4 overflow-hidden"
-              style={{
-                borderRadius: '1rem',
-                borderLeft: '6px solid #FFB800',
-                backgroundColor: '#ffffff',
-              }}
-            >
-              <div className="card-body p-4">
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                  <div>
-                    <div className="d-flex align-items-center gap-2 mb-2">
-                      <span
-                        className="badge"
-                        style={{
-                          backgroundColor: '#002583',
-                          color: '#ffffff',
-                          fontSize: '0.8rem',
-                          padding: '0.4rem 0.75rem',
-                          borderRadius: '0.5rem',
-                        }}
-                      >
-                        <i className="bi bi-person-badge-fill me-1" />
-                        {data.assigned_class.is_substitute
-                          ? 'Active Substitute Class Teacher'
-                          : 'Designated Class Teacher'}
-                      </span>
-                      {data.assigned_class.attendance_status === 'submitted' ? (
-                        <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-1" style={{ borderRadius: '0.5rem', fontSize: '0.8rem' }}>
-                          <i className="bi bi-check-circle-fill me-1" />
-                          Today's Attendance: Submitted
-                          {data.assigned_class.submitted_at &&
-                            ` (${new Date(data.assigned_class.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`}
-                        </span>
-                      ) : (
-                        <span
-                          className="badge border px-3 py-1"
-                          style={{
-                            backgroundColor: '#FFF8E1',
-                            color: '#B78103',
-                            borderColor: '#FFD54F',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          <i className="bi bi-exclamation-triangle-fill text-warning me-1" />
-                          Today's Attendance: Not Started
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="h4 fw-bold text-dark mb-1">
-                      {data.assigned_class.name}
-                      {data.assigned_class.section ? ` • Section ${data.assigned_class.section}` : ''}
-                    </h3>
-                    <p className="text-muted small mb-0">
-                      Total Roll: <strong>{data.assigned_class.total_students} students</strong>
-                      {data.assigned_class.boys_count !== undefined && (
-                        <span>
-                          {' '}({data.assigned_class.boys_count} Boys, {data.assigned_class.girls_count} Girls)
-                        </span>
-                      )}
-                      {data.assigned_class.attendance_status === 'submitted' && (
-                        <span className="ms-2">
-                          | Present:{' '}
-                          <strong className="text-success">{data.assigned_class.present_count}</strong>, Absent:{' '}
-                          <strong className="text-danger">{data.assigned_class.absent_count}</strong>
-                        </span>
-                      )}
-                    </p>
-                  </div>
+          <DashboardHeader
+            title="Teacher Academic Workspace"
+            userName={user?.username || 'Teacher'}
+            userRole={
+              data?.assigned_class
+                ? data.assigned_class.is_substitute
+                  ? 'Active Substitute Class Teacher'
+                  : 'Designated Class Teacher'
+                : 'Teaching Faculty'
+            }
+            schoolName={school?.name || 'SchoolStacks Academy'}
+            academicTerm={data?.active_term?.name || 'Term 1'}
+            academicYear={data?.active_term?.academic_year || '2026'}
+            badgeText={data?.assigned_class ? `Class Teacher: ${data.assigned_class.name}` : 'Faculty Member'}
+            badgeVariant="gold"
+            quickStats={[
+              {
+                label: 'Assigned Roll',
+                value: data?.assigned_class?.total_students || 0,
+                icon: 'bi-people-fill',
+              },
+              {
+                label: "Today's Roll Call",
+                value: data?.assigned_class?.attendance_status === 'submitted' ? 'Submitted' : 'Pending',
+                icon: 'bi-calendar-check',
+              },
+            ]}
+            actions={
+              data?.assigned_class && (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  icon="bi-clipboard2-check-fill"
+                  onClick={() => {
+                    setAttClassId(String(data.assigned_class.id));
+                    setActiveTab('attendance');
+                    loadAttendanceSheet(String(data.assigned_class.id), attDate);
+                  }}
+                >
+                  Take Roll Call
+                </Button>
+              )
+            }
+          />
 
-                  <div className="d-flex align-items-center gap-2">
-                    <button
-                      type="button"
-                      className="btn fw-bold px-4 py-2 shadow-sm"
-                      style={{
-                        backgroundColor: '#FFB800',
-                        color: '#002583',
-                        borderRadius: '0.6rem',
-                        border: 'none',
-                        fontSize: '0.95rem',
-                      }}
+          {/* Quick Actions Grid */}
+          <div className="mb-4">
+            <QuickActionGrid
+              columns={4}
+              actions={[
+                {
+                  icon: 'bi-clipboard2-check-fill',
+                  label: 'Mark Attendance',
+                  description: 'Daily classroom register',
+                  color: '#002583',
+                  badge: data?.assigned_class?.attendance_status !== 'submitted' ? 'Due' : undefined,
+                  onClick: () => {
+                    if (data?.assigned_class?.id) {
+                      setAttClassId(String(data.assigned_class.id));
+                      loadAttendanceSheet(String(data.assigned_class.id), attDate);
+                    }
+                    setActiveTab('attendance');
+                  },
+                },
+                {
+                  icon: 'bi-journal-plus',
+                  label: 'Record Exam Marks',
+                  description: 'Enter term test scores',
+                  color: '#059669',
+                  onClick: () => setActiveTab('results'),
+                },
+                {
+                  icon: 'bi-calendar3-week',
+                  label: 'View Timetable',
+                  description: 'Weekly schedule & periods',
+                  color: '#7C3AED',
+                  onClick: () => setActiveTab('timetable'),
+                },
+                {
+                  icon: 'bi-file-earmark-plus',
+                  label: 'New Assignment',
+                  description: 'Post student coursework',
+                  color: '#D97706',
+                  onClick: () => setActiveTab('assignments'),
+                },
+              ]}
+            />
+          </div>
+
+          {/* Modern Statistic Cards */}
+          <div className="row g-3 mb-4">
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-door-open-fill"
+                label="Assigned Classes"
+                value={classes.length}
+                variant="blue"
+                trend={{
+                  text: data?.assigned_class ? `Class Teacher: ${data.assigned_class.name}` : `${classes.length} Teaching Groups`,
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('timetable')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-book-fill"
+                label="Teaching Subjects"
+                value={subjects.length}
+                variant="purple"
+                trend={{
+                  text: 'Curriculum Subjects',
+                  positive: null,
+                }}
+                onClick={() => setActiveTab('results')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-calendar2-check-fill"
+                label="Class Attendance"
+                value={
+                  data?.assigned_class?.attendance_status === 'submitted'
+                    ? 'Marked'
+                    : 'Pending'
+                }
+                variant={data?.assigned_class?.attendance_status === 'submitted' ? 'emerald' : 'amber'}
+                trend={{
+                  text: data?.assigned_class
+                    ? `${data.assigned_class.present_count || 0} Present / ${data.assigned_class.absent_count || 0} Absent`
+                    : 'No Classroom Assigned',
+                  positive: data?.assigned_class?.attendance_status === 'submitted',
+                }}
+                onClick={() => setActiveTab('attendance')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-clipboard2-check-fill"
+                label="Active Assignments"
+                value={assignments.length}
+                variant="amber"
+                trend={{
+                  text: `${assignments.reduce((sum: number, a: any) => sum + (a.submissions_count || 0), 0)} Submissions`,
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('assignments')}
+              />
+            </div>
+          </div>
+
+          {/* Assigned Classroom Card & Gender/Attendance Donut */}
+          {data?.assigned_class && (
+            <div className="row g-4 mb-4">
+              <div className="col-lg-7">
+                <Card
+                  title={`Assigned Class: ${data.assigned_class.name}`}
+                  subtitle={`Designated classroom overview & timetable schedule`}
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="accent"
+                      icon="bi-calendar-check"
                       onClick={() => {
                         setAttClassId(String(data.assigned_class.id));
                         setActiveTab('attendance');
                         loadAttendanceSheet(String(data.assigned_class.id), attDate);
                       }}
                     >
-                      <i className="bi bi-clipboard2-check-fill me-2" />
-                      Take Daily Attendance
-                    </button>
+                      Take Roll Call
+                    </Button>
+                  }
+                >
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-3 border-bottom mb-3">
+                    <div>
+                      <span className="badge bg-primary-subtle text-primary border border-primary-subtle me-2">
+                        {data.assigned_class.is_substitute ? 'Substitute Teacher' : 'Class Teacher'}
+                      </span>
+                      <span className="fw-semibold text-dark">
+                        Total Roll: {data.assigned_class.total_students} Students
+                      </span>
+                    </div>
+                    {data.assigned_class.attendance_status === 'submitted' ? (
+                      <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                        <i className="bi bi-check-circle-fill me-1" />
+                        Today Marked ({data.assigned_class.present_count} Present, {data.assigned_class.absent_count} Absent)
+                      </span>
+                    ) : (
+                      <span className="badge bg-warning-subtle text-warning-emphasis border border-warning px-2 py-1">
+                        <i className="bi bi-exclamation-triangle-fill me-1" />
+                        Today's Attendance Pending
+                      </span>
+                    )}
                   </div>
-                </div>
 
-                {data.assigned_class.timetable && data.assigned_class.timetable.length > 0 && (
-                  <div className="mt-3 pt-3 border-top">
-                    <div className="text-uppercase text-muted fw-bold mb-2" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
-                      <i className="bi bi-calendar3 me-1" /> Assigned Class Timetable
-                    </div>
-                    <div className="d-flex gap-2 flex-wrap">
-                      {data.assigned_class.timetable.slice(0, 5).map((tt: any) => (
-                        <div key={tt.id} className="p-2 border rounded-3 bg-light small" style={{ minWidth: '135px' }}>
-                          <div className="fw-semibold text-truncate">{tt.subject_name}</div>
-                          <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                            {tt.day} {tt.start_time}-{tt.end_time}
+                  {data.assigned_class.timetable && data.assigned_class.timetable.length > 0 ? (
+                    <div>
+                      <div className="text-uppercase text-muted fw-bold small mb-2" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
+                        <i className="bi bi-calendar3-week me-1" /> Daily Schedule & Periods
+                      </div>
+                      <div className="d-flex gap-2 flex-wrap">
+                        {data.assigned_class.timetable.slice(0, 6).map((tt: any) => (
+                          <div key={tt.id} className="p-2.5 border rounded-3 bg-light small flex-grow-1" style={{ minWidth: 140 }}>
+                            <div className="fw-semibold text-dark text-truncate">{tt.subject_name}</div>
+                            <div className="text-muted" style={{ fontSize: '11px' }}>
+                              {tt.day} &bull; {tt.start_time} - {tt.end_time}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-muted small py-2">No timetable entries registered for this class.</div>
+                  )}
+                </Card>
+              </div>
+
+              <div className="col-lg-5">
+                <Card title="Student Demographics & Attendance" subtitle="Class composition">
+                  <DonutChart
+                    data={[
+                      {
+                        label: 'Boys',
+                        value: data.assigned_class.boys_count || 0,
+                        color: '#3B82F6',
+                      },
+                      {
+                        label: 'Girls',
+                        value: data.assigned_class.girls_count || 0,
+                        color: '#EC4899',
+                      },
+                      {
+                        label: 'Present Today',
+                        value: data.assigned_class.present_count || 0,
+                        color: '#10B981',
+                      },
+                      {
+                        label: 'Absent Today',
+                        value: data.assigned_class.absent_count || 0,
+                        color: '#EF4444',
+                      },
+                    ]}
+                    centerValue={data.assigned_class.total_students}
+                    centerLabel="Total Roll"
+                  />
+                </Card>
               </div>
             </div>
           )}
 
-          <div className="row g-3 mb-4">
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-door-open-fill"
-                label="Assigned Classes"
-                value={classes.length}
-                variant="blue"
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-book-fill"
-                label="Assigned Subjects"
-                value={subjects.length}
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-clipboard2-check-fill"
-                label="Active Assignments"
-                value={assignments.length}
-                variant="mustard"
-                accentTop
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-folder2-open"
-                label="Study Materials"
-                value={materials.length}
-              />
-            </div>
-          </div>
-
+          {/* Assignments & Announcements Row */}
           <div className="row g-4 mb-4">
             <div className="col-lg-7">
               <Card
@@ -502,7 +610,7 @@ export const TeacherPortal: React.FC = () => {
                           <a
                             href={`/api/assignments/${a.id}/attachment`}
                             download
-                            className="edu-btn edu-btn-outline edu-btn-sm"
+                            className="edu-btn edu-btn-outline edu-btn-sm text-decoration-none"
                           >
                             <i className="bi bi-paperclip" /> File
                           </a>
@@ -529,20 +637,20 @@ export const TeacherPortal: React.FC = () => {
                 }
               >
                 {announcements.length === 0 ? (
-                  <div className="text-muted small">No announcements posted yet.</div>
+                  <div className="text-muted small py-3 text-center">No announcements posted yet.</div>
                 ) : (
-                  <div className="d-flex flex-column gap-3">
+                  <div className="d-flex flex-column gap-2.5">
                     {announcements.slice(0, 3).map((ann: any) => (
                       <div
                         key={ann.id}
-                        className="p-3 rounded-2 border"
-                        style={{ background: 'var(--color-surface)' }}
+                        className="p-3 rounded-3 border"
+                        style={{ background: '#FFFFFF' }}
                       >
                         <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span className="fw-bold text-primary">{ann.title}</span>
-                          <span className="text-muted small">{ann.created_at?.slice(0, 10)}</span>
+                          <span className="fw-bold text-dark small">{ann.title}</span>
+                          <span className="text-muted" style={{ fontSize: '11px' }}>{ann.created_at?.slice(0, 10)}</span>
                         </div>
-                        <div className="small text-muted">{ann.message}</div>
+                        <div className="small text-secondary">{ann.message}</div>
                       </div>
                     ))}
                   </div>

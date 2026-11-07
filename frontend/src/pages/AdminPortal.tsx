@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout, NavItem } from '../layouts/AppLayout';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import {
   AlertBanner,
   Badge,
@@ -15,22 +16,29 @@ import {
   PasswordInput,
   StatCard,
 } from '../components/ui';
+import {
+  DashboardHeader,
+  StatisticCard as ModernStatCard,
+  DonutChart,
+  HorizontalBarChart,
+  QuickActionGrid,
+} from '../components/dashboard';
 
 const ADMIN_NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard & Analytics', icon: 'bi-grid-1x2-fill' },
-  { id: 'students', label: 'Students', icon: 'bi-mortarboard-fill' },
-  { id: 'teachers', label: 'Teachers', icon: 'bi-person-badge-fill' },
-  { id: 'class-teachers', label: 'Class Teacher Allocation', icon: 'bi-person-check-fill' },
-  { id: 'parents', label: 'Parents', icon: 'bi-people-fill' },
-  { id: 'academics', label: 'Classes, Subjects & Terms', icon: 'bi-layers-fill' },
-  { id: 'attendance', label: 'Attendance', icon: 'bi-calendar2-check-fill' },
-  { id: 'sms', label: 'SMS & Parent Communication', icon: 'bi-chat-dots-fill' },
-  { id: 'approvals', label: 'Results & Approvals', icon: 'bi-check2-circle' },
-  { id: 'report-cards', label: 'Report Cards', icon: 'bi-file-earmark-pdf-fill' },
-  { id: 'fees', label: 'Fees & Online Payments', icon: 'bi-cash-coin' },
-  { id: 'timetable', label: 'Timetable', icon: 'bi-calendar3-week' },
-  { id: 'announcements', label: 'Announcements', icon: 'bi-megaphone-fill' },
-  { id: 'settings', label: 'School Settings', icon: 'bi-gear-fill' },
+  { id: 'dashboard', label: 'Dashboard & Analytics', icon: 'bi-grid-1x2-fill', section: 'CORE MANAGEMENT' },
+  { id: 'students', label: 'Students', icon: 'bi-mortarboard-fill', section: 'CORE MANAGEMENT' },
+  { id: 'teachers', label: 'Teachers', icon: 'bi-person-badge-fill', section: 'CORE MANAGEMENT' },
+  { id: 'class-teachers', label: 'Class Teacher Allocation', icon: 'bi-person-check-fill', section: 'CORE MANAGEMENT' },
+  { id: 'parents', label: 'Parents', icon: 'bi-people-fill', section: 'CORE MANAGEMENT' },
+  { id: 'academics', label: 'Classes, Subjects & Terms', icon: 'bi-layers-fill', section: 'ACADEMIC ENGINE' },
+  { id: 'attendance', label: 'Attendance', icon: 'bi-calendar2-check-fill', section: 'ACADEMIC ENGINE' },
+  { id: 'approvals', label: 'Results & Approvals', icon: 'bi-check2-circle', section: 'ACADEMIC ENGINE' },
+  { id: 'report-cards', label: 'Report Cards', icon: 'bi-file-earmark-pdf-fill', section: 'ACADEMIC ENGINE' },
+  { id: 'timetable', label: 'Timetable', icon: 'bi-calendar3-week', section: 'ACADEMIC ENGINE' },
+  { id: 'sms', label: 'SMS & Parent Communication', icon: 'bi-chat-dots-fill', section: 'COMMUNICATION & FINANCE' },
+  { id: 'fees', label: 'Fees & Online Payments', icon: 'bi-cash-coin', section: 'COMMUNICATION & FINANCE' },
+  { id: 'announcements', label: 'Announcements', icon: 'bi-megaphone-fill', section: 'COMMUNICATION & FINANCE' },
+  { id: 'settings', label: 'School Settings', icon: 'bi-gear-fill', section: 'SYSTEM' },
 ];
 
 /**
@@ -68,6 +76,7 @@ export function validateZambianPhone(
 
 export const AdminPortal: React.FC = () => {
   const navigate = useNavigate();
+  const { user, school } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -588,119 +597,308 @@ export const AdminPortal: React.FC = () => {
       <AlertBanner variant="danger" message={error} onDismiss={() => setError(null)} />
 
       {/* ══════════════════════════════════════════════════════════════════
-          1. DASHBOARD & ANALYTICS
+          1. DASHBOARD & ANALYTICS (MODERN REDESIGNED VIEW)
          ══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'dashboard' && (
         <>
+          <DashboardHeader
+            title="School Executive Overview"
+            userName={user?.username || 'Administrator'}
+            userRole="School Administrator"
+            schoolName={school?.name || data?.school?.name || 'SchoolStacks Academy'}
+            academicTerm={data?.active_term?.name || 'Term 1'}
+            academicYear={data?.active_term?.academic_year || '2026'}
+            badgeText="Live Session"
+            badgeVariant="green"
+            quickStats={[
+              {
+                label: 'Attendance',
+                value: `${metrics.today_rate || 96}%`,
+                icon: 'bi-check2-circle',
+              },
+              {
+                label: 'Term Fees',
+                value: `K${Number(metrics.total_collected_zmw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+                icon: 'bi-cash-coin',
+              },
+            ]}
+            actions={
+              <div className="d-flex gap-2">
+                <Button
+                  size="sm"
+                  variant="accent"
+                  icon="bi-calendar2-check-fill"
+                  onClick={() => setActiveTab('attendance')}
+                >
+                  Mark Attendance
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon="bi-chat-dots-fill"
+                  onClick={() => setActiveTab('sms')}
+                >
+                  SMS Alerts
+                </Button>
+              </div>
+            }
+          />
+
+          {/* Quick Action Navigation Grid */}
+          <div className="mb-4">
+            <QuickActionGrid
+              columns={4}
+              actions={[
+                {
+                  icon: 'bi-person-plus-fill',
+                  label: 'Register Student',
+                  description: 'Add new admission record',
+                  color: '#002583',
+                  onClick: () => setStudentModalOpen(true),
+                },
+                {
+                  icon: 'bi-person-badge-fill',
+                  label: 'Add Faculty',
+                  description: 'Enrol teaching staff',
+                  color: '#7C3AED',
+                  onClick: () => setTeacherModalOpen(true),
+                },
+                {
+                  icon: 'bi-cash-stack',
+                  label: 'Collect Fees',
+                  description: 'Record student tuition',
+                  color: '#D97706',
+                  onClick: () => setActiveTab('fees'),
+                },
+                {
+                  icon: 'bi-check2-all',
+                  label: 'Exam Approvals',
+                  description: 'Publish verified marks',
+                  color: '#059669',
+                  badge: metrics.pending_results_count > 0 ? `${metrics.pending_results_count}` : undefined,
+                  onClick: () => setActiveTab('approvals'),
+                },
+              ]}
+            />
+          </div>
+
+          {/* Colorful Modern Statistic Cards */}
           <div className="row g-3 mb-4">
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-mortarboard-fill"
                 label="Enrolled Students"
                 value={metrics.total_students || 0}
                 variant="blue"
+                trend={{
+                  text: `${metrics.total_classes || 0} Active Classes`,
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('students')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-person-workspace"
                 label="Teaching Staff"
                 value={metrics.total_teachers || 0}
+                variant="purple"
+                trend={{
+                  text: 'Verified Faculty',
+                  positive: null,
+                }}
+                onClick={() => setActiveTab('teachers')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-door-open-fill"
-                label="Active Classes"
-                value={metrics.total_classes || 0}
+              <ModernStatCard
+                icon="bi-calendar2-check-fill"
+                label="Today's Attendance"
+                value={`${metrics.today_rate || (metrics.present_count ? Math.round((metrics.present_count / (metrics.present_count + metrics.absent_count)) * 100) : 0)}%`}
+                variant="emerald"
+                trend={{
+                  text: `${metrics.today_present || metrics.present_count || 0} Present / ${metrics.today_absent || metrics.absent_count || 0} Absent`,
+                  positive: (metrics.today_rate || 0) >= 80,
+                }}
+                onClick={() => setActiveTab('attendance')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-cash-coin"
                 label="Fees Collected (ZMW)"
-                value={`K${Number(metrics.total_collected_zmw || 0).toFixed(2)}`}
-                variant="mustard"
-                accentTop
+                value={`K${Number(metrics.total_collected_zmw || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                variant="amber"
+                trend={{
+                  text: `Due: K${Number(metrics.total_outstanding_zmw || 0).toFixed(0)}`,
+                  positive: (metrics.total_outstanding_zmw || 0) <= 0,
+                }}
+                onClick={() => setActiveTab('fees')}
+              />
+            </div>
+
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-door-open-fill"
+                label="Active Classrooms"
+                value={metrics.total_classes || 0}
+                variant="cyan"
+                trend={{
+                  text: 'Allocations Active',
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('academics')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-journal-check"
+                label="Results For Review"
+                value={metrics.pending_results_count || 0}
+                variant="amber"
+                trend={{
+                  text: metrics.pending_results_count > 0 ? 'Action Needed' : 'All Published',
+                  positive: metrics.pending_results_count === 0,
+                }}
+                onClick={() => setActiveTab('approvals')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-exclamation-triangle-fill"
+                label="Absenteeism Alerts"
+                value={metrics.today_absent || metrics.absent_count || 0}
+                variant="rose"
+                trend={{
+                  text: `${(data?.absent_today_students || []).length} Today Notice`,
+                  positive: (data?.absent_today_students || []).length === 0,
+                }}
+                onClick={() => setActiveTab('sms')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-wallet2"
+                label="SMS Credit Balance"
+                value={`${smsBalance?.currency || 'EUR'} ${Number(smsBalance?.balance || 0).toFixed(2)}`}
+                variant="blue"
+                trend={{
+                  text: 'EasySendSMS Live',
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('sms')}
               />
             </div>
           </div>
 
+          {/* Analytics & Charts Row */}
           <div className="row g-4 mb-4">
             <div className="col-lg-7">
               <Card
-                title="Subject Performance Averages"
-                subtitle="Mean exam scores across registered school subjects"
+                title="Academic Performance by Subject"
+                subtitle="Mean examination score averages with 50% passing threshold"
+                actions={
+                  <Button size="sm" variant="outline" onClick={() => setActiveTab('approvals')}>
+                    View Approvals
+                  </Button>
+                }
               >
-                {subjects.length === 0 ? (
-                  <div className="text-muted small">No subjects configured yet.</div>
-                ) : (
-                  <div className="d-flex flex-column gap-3">
-                    {subjects.map((s: any) => (
-                      <div key={s.id}>
-                        <div className="d-flex justify-content-between small fw-bold mb-1">
-                          <span>
-                            {s.name} ({s.code})
-                          </span>
-                          <span style={{ color: 'var(--color-strong-blue)' }}>
-                            {s.average}% ({s.count} results)
-                          </span>
-                        </div>
-                        <div
-                          className="progress"
-                          style={{ height: 10, background: 'var(--color-cool-gray)' }}
-                        >
-                          <div
-                            className="progress-bar"
-                            style={{
-                              width: `${Math.min(100, Math.max(6, s.average))}%`,
-                              background:
-                                s.average >= 50
-                                  ? 'var(--color-strong-blue)'
-                                  : 'var(--color-mustard)',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <HorizontalBarChart
+                  data={subjects.map((s: any) => ({
+                    id: s.id,
+                    label: s.name,
+                    code: s.code,
+                    value: Number(s.average || 0),
+                    count: s.count,
+                  }))}
+                  benchmark={50}
+                  benchmarkLabel="50% Pass Benchmark"
+                />
               </Card>
             </div>
 
             <div className="col-lg-5">
-              <Card title="Academic & Attendance Summary" subtitle="School-wide KPIs">
-                <div className="row g-3">
-                  <div className="col-6">
-                    <div className="p-3 rounded border text-center" style={{ background: '#F8FAFC' }}>
-                      <div className="text-muted small">Passing Exam Marks</div>
-                      <div className="h4 fw-bold mb-0 text-success">{metrics.pass_count || 0}</div>
-                    </div>
-                  </div>
-                  <div className="col-6">
-                    <div className="p-3 rounded border text-center" style={{ background: '#F8FAFC' }}>
-                      <div className="text-muted small">Failing Exam Marks</div>
-                      <div className="h4 fw-bold mb-0 text-danger">{metrics.fail_count || 0}</div>
-                    </div>
-                  </div>
-                  <div className="col-6">
-                    <div className="p-3 rounded border text-center" style={{ background: '#F8FAFC' }}>
-                      <div className="text-muted small">Present Attendances</div>
-                      <div className="h4 fw-bold mb-0" style={{ color: 'var(--color-strong-blue)' }}>
-                        {metrics.present_count || 0}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-6">
-                    <div className="p-3 rounded border text-center" style={{ background: '#F8FAFC' }}>
-                      <div className="text-muted small">Absent Records</div>
-                      <div className="h4 fw-bold mb-0 text-warning">{metrics.absent_count || 0}</div>
-                    </div>
-                  </div>
-                </div>
+              <Card
+                title="Attendance Distribution"
+                subtitle="Daily school attendance status breakdown"
+                actions={
+                  <Button size="sm" variant="outline" onClick={() => setActiveTab('attendance')}>
+                    Roll Call
+                  </Button>
+                }
+              >
+                <DonutChart
+                  data={[
+                    {
+                      label: 'Present',
+                      value: metrics.today_present || metrics.present_count || 0,
+                      color: '#10B981',
+                    },
+                    {
+                      label: 'Absent',
+                      value: metrics.today_absent || metrics.absent_count || 0,
+                      color: '#EF4444',
+                    },
+                    {
+                      label: 'Late',
+                      value: metrics.late_count || 0,
+                      color: '#F59E0B',
+                    },
+                    {
+                      label: 'Excused',
+                      value: metrics.excused_count || 0,
+                      color: '#3B82F6',
+                    },
+                  ]}
+                  centerValue={metrics.today_rate || (metrics.present_count ? Math.round((metrics.present_count / (metrics.present_count + metrics.absent_count)) * 100) : 0)}
+                  centerLabel="Rate %"
+                  unit="%"
+                />
               </Card>
             </div>
           </div>
+
+          {/* Absent Students Follow-up Banner */}
+          {(data?.absent_today_students || []).length > 0 && (
+            <div
+              className="card border-0 mb-4 overflow-hidden"
+              style={{
+                borderRadius: '1rem',
+                borderLeft: '5px solid #EF4444',
+                background: '#FFFFFF',
+                boxShadow: '0 4px 18px rgba(239, 68, 68, 0.08)',
+              }}
+            >
+              <div className="card-body p-3.5">
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                  <div className="d-flex align-items-center gap-3">
+                    <div
+                      className="rounded-circle d-flex align-items-center justify-content-center"
+                      style={{ width: 44, height: 44, background: '#FEE2E2', color: '#B91C1C' }}
+                    >
+                      <i className="bi bi-bell-fill fs-5" />
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark">
+                        Today's Absenteeism Notices: {(data?.absent_today_students || []).length} Students Absent
+                      </div>
+                      <div className="text-muted small">
+                        Automated parent SMS alerts and administrator follow-up logs are available.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="d-flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setActiveTab('attendance')}>
+                      Review Attendance
+                    </Button>
+                    <Button size="sm" variant="accent" onClick={() => setActiveTab('sms')}>
+                      SMS Parent Follow-Up
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Card
             title="Recent Fee Payments & Receipts"

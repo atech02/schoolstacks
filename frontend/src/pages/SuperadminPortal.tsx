@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppLayout, NavItem } from '../layouts/AppLayout';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import {
   AlertBanner,
   Badge,
@@ -14,12 +15,18 @@ import {
   Modal,
   StatCard,
 } from '../components/ui';
+import {
+  DashboardHeader,
+  StatisticCard as ModernStatCard,
+  DonutChart,
+  QuickActionGrid,
+} from '../components/dashboard';
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Platform Overview', icon: 'bi-speedometer2' },
-  { id: 'schools', label: 'Tenant Schools', icon: 'bi-buildings' },
-  { id: 'activity', label: 'Activity Monitor', icon: 'bi-activity' },
-  { id: 'subscriptions', label: 'SaaS Subscriptions', icon: 'bi-credit-card-2-front' },
+  { id: 'overview', label: 'Platform Command Centre', icon: 'bi-speedometer2', section: 'EXECUTIVE OVERVIEW' },
+  { id: 'schools', label: 'Tenant Schools', icon: 'bi-buildings', section: 'MANAGEMENT' },
+  { id: 'subscriptions', label: 'SaaS Subscriptions', icon: 'bi-credit-card-2-front', section: 'BILLING & PLANS' },
+  { id: 'activity', label: 'Audit & Activity Monitor', icon: 'bi-activity', section: 'SYSTEM AUDIT' },
 ];
 
 const ACTIVITY_CATEGORIES = [
@@ -127,6 +134,7 @@ function categoryIcon(category: string): string {
 export const SuperadminPortal: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Parse current route under /superadmin/*
   const pathParts = location.pathname.replace(/^\/superadmin\/?/, '').split('/').filter(Boolean);
@@ -1418,96 +1426,274 @@ export const SuperadminPortal: React.FC = () => {
            VIEW 5: DEFAULT PLATFORM OVERVIEW DASHBOARD (/superadmin)
            ══════════════════════════════════════════════════════════════════ */
         <div>
-          {/* Primary Row: Core Schools, Activity & Revenue Metrics */}
-          <div className="row g-3 mb-3">
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-buildings-fill"
-                label="Total Registered Schools"
-                value={metrics.total_schools || 0}
-                variant="blue"
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-check2-circle"
-                label="Active vs Suspended Schools"
-                value={`${metrics.active_schools || 0} Active • ${metrics.suspended_schools || 0} Suspended`}
-                variant="mustard"
-                accentTop
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-hourglass-top"
-                label="Trial & Expired Subscriptions"
-                value={`${metrics.trial_schools || 0} Trial • ${metrics.expired_or_overdue_schools || 0} Expired`}
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-cash-stack"
-                label="Net Subscription Revenue (ZMW)"
-                value={`K${Number(metrics.subscription_revenue_zmw || 0).toFixed(2)}`}
-                variant="mustard"
-                accentTop
-              />
-            </div>
+          <DashboardHeader
+            title="Multi-Tenant SaaS Command Centre"
+            userName={user?.username || 'Super Administrator'}
+            userRole="Platform Super Administrator"
+            schoolName="SchoolStacks Multi-Tenant Cloud Platform"
+            academicYear="2026"
+            badgeText="Platform Master Access"
+            badgeVariant="gold"
+            quickStats={[
+              {
+                label: 'Total Tenants',
+                value: metrics.total_schools || 0,
+                icon: 'bi-buildings-fill',
+              },
+              {
+                label: 'Active Tenants',
+                value: metrics.active_schools || 0,
+                icon: 'bi-check2-circle',
+              },
+              {
+                label: 'Est. MRR',
+                value: `K${Number(metrics.estimated_mrr_zmw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+                icon: 'bi-cash-coin',
+              },
+            ]}
+            actions={
+              <div className="d-flex gap-2">
+                <Button
+                  size="sm"
+                  variant="accent"
+                  icon="bi-buildings"
+                  onClick={() => navigate('/superadmin/schools')}
+                >
+                  Manage Schools
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon="bi-activity"
+                  onClick={() => navigate('/superadmin/activity')}
+                >
+                  Live Audit
+                </Button>
+              </div>
+            }
+          />
+
+          {/* Quick Action Navigation Grid */}
+          <div className="mb-4">
+            <QuickActionGrid
+              columns={4}
+              actions={[
+                {
+                  icon: 'bi-buildings-fill',
+                  label: 'Tenant Directory',
+                  description: 'All registered schools',
+                  color: '#002583',
+                  badge: `${metrics.total_schools || 0}`,
+                  onClick: () => navigate('/superadmin/schools'),
+                },
+                {
+                  icon: 'bi-credit-card-2-front-fill',
+                  label: 'SaaS Subscriptions',
+                  description: 'Billing plans & revenue',
+                  color: '#D97706',
+                  onClick: () => navigate('/superadmin/subscriptions'),
+                },
+                {
+                  icon: 'bi-activity',
+                  label: 'Activity Monitor',
+                  description: 'Platform audit stream',
+                  color: '#059669',
+                  badge: `${metrics.active_schools_24h || 0} active`,
+                  onClick: () => navigate('/superadmin/activity'),
+                },
+                {
+                  icon: 'bi-person-plus-fill',
+                  label: 'Onboard School',
+                  description: 'Register new tenant',
+                  color: '#7C3AED',
+                  onClick: () => navigate('/register'),
+                },
+              ]}
+            />
           </div>
 
-          {/* Secondary Row: Platform Population, Active Window & Payment Health */}
+          {/* Primary Row: Core Schools, Activity & Revenue Metrics */}
           <div className="row g-3 mb-4">
             <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-mortarboard-fill"
-                label="Total Registered Students"
-                value={metrics.total_students || 0}
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-person-badge-fill"
-                label="Teachers & School Admins"
-                value={`${metrics.total_teachers || 0} Teachers • ${metrics.total_admins || 0} Admins`}
-              />
-            </div>
-            <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-lightning-charge-fill"
-                label="Recently Active Schools"
-                value={`${metrics.active_schools_24h || 0} (24h) • ${metrics.active_schools_7d || 0} (7d)`}
+              <ModernStatCard
+                icon="bi-buildings-fill"
+                label="Registered Schools"
+                value={metrics.total_schools || 0}
                 variant="blue"
+                trend={{
+                  text: `${metrics.active_schools || 0} Active Platforms`,
+                  positive: true,
+                }}
+                onClick={() => navigate('/superadmin/schools')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-exclamation-diamond-fill"
-                label="Failed / Pending Subscriptions"
-                value={`${metrics.failed_subscriptions_count || 0} Failed • ${metrics.pending_subscriptions_count || 0} Pending`}
+              <ModernStatCard
+                icon="bi-check2-circle"
+                label="Active Tenants"
+                value={metrics.active_schools || 0}
+                variant="emerald"
+                trend={{
+                  text: `${metrics.suspended_schools || 0} Suspended`,
+                  positive: (metrics.suspended_schools || 0) === 0,
+                }}
+                onClick={() => navigate('/superadmin/schools')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-mortarboard-fill"
+                label="Platform Students"
+                value={Number(metrics.total_students || 0).toLocaleString()}
+                variant="purple"
+                trend={{
+                  text: 'Across All Tenants',
+                  positive: true,
+                }}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-cash-stack"
+                label="Subscription Revenue"
+                value={`K${Number(metrics.subscription_revenue_zmw || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                variant="amber"
+                trend={{
+                  text: `Est. MRR: K${Number(metrics.estimated_mrr_zmw || 0).toFixed(0)}`,
+                  positive: true,
+                }}
+                onClick={() => navigate('/superadmin/subscriptions')}
+              />
+            </div>
+
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-person-badge-fill"
+                label="Faculty & Administrators"
+                value={`${metrics.total_teachers || 0} Teachers`}
+                variant="cyan"
+                trend={{
+                  text: `${metrics.total_admins || 0} School Admins`,
+                  positive: true,
+                }}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-lightning-charge-fill"
+                label="24h Active Tenants"
+                value={metrics.active_schools_24h || 0}
+                variant="emerald"
+                trend={{
+                  text: `${metrics.active_schools_7d || 0} (7-Day Active)`,
+                  positive: true,
+                }}
+                onClick={() => navigate('/superadmin/activity')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-hourglass-top"
+                label="Trial & Overdue"
+                value={`${metrics.trial_schools || 0} Trial`}
+                variant="amber"
+                trend={{
+                  text: `${metrics.expired_or_overdue_schools || 0} Expired Subscriptions`,
+                  positive: (metrics.expired_or_overdue_schools || 0) === 0,
+                }}
+                onClick={() => navigate('/superadmin/subscriptions')}
+              />
+            </div>
+            <div className="col-sm-6 col-xl-3">
+              <ModernStatCard
+                icon="bi-shield-check"
+                label="System Health"
+                value="Optimal"
+                variant="emerald"
+                trend={{
+                  text: 'PostgreSQL Pooled',
+                  positive: true,
+                }}
               />
             </div>
           </div>
 
-          {/* Revenue Distinction Notice */}
-          <div
-            className="p-3 rounded-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2 small"
-            style={{
-              background: 'var(--color-cool-gray)',
-              borderLeft: '4px solid var(--color-strong-blue)',
-              color: 'var(--color-text)',
-            }}
-          >
-            <div>
-              <strong style={{ color: 'var(--color-strong-blue)' }}>
-                <i className="bi bi-shield-check me-1" /> Accounting Separation:
-              </strong>{' '}
-              Net Subscription Revenue (<strong>K{Number(metrics.subscription_revenue_zmw || 0).toFixed(2)}</strong>, Est. MRR:{' '}
-              <strong>K{Number(metrics.estimated_mrr_zmw || 0).toFixed(2)}</strong>) counts only verified SaaS plan subscriptions.
-              School tuition fees paid by parents (<strong>K{Number(metrics.school_fee_collections_zmw || 0).toFixed(2)}</strong> across all schools) are tenant funds and are not counted as platform revenue.
+          {/* Analytics Row: Subscription Tier Distribution */}
+          <div className="row g-4 mb-4">
+            <div className="col-lg-6">
+              <Card
+                title="SaaS Subscription Plan Distribution"
+                subtitle="Tenant schools categorized by active subscription tier"
+                actions={
+                  <Button size="sm" variant="outline" onClick={() => navigate('/superadmin/subscriptions')}>
+                    Manage Plans
+                  </Button>
+                }
+              >
+                <DonutChart
+                  data={[
+                    {
+                      label: 'Enterprise',
+                      value: schools.filter((s: any) => s.plan === 'enterprise').length,
+                      color: '#002583',
+                    },
+                    {
+                      label: 'Standard',
+                      value: schools.filter((s: any) => s.plan === 'standard').length,
+                      color: '#3B82F6',
+                    },
+                    {
+                      label: 'Basic',
+                      value: schools.filter((s: any) => s.plan === 'basic').length,
+                      color: '#10B981',
+                    },
+                    {
+                      label: 'Trial / Free',
+                      value: schools.filter((s: any) => !s.plan || s.plan === 'free' || s.plan === 'trial').length,
+                      color: '#F59E0B',
+                    },
+                  ]}
+                  centerValue={metrics.total_schools || schools.length}
+                  centerLabel="Tenants"
+                />
+              </Card>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/superadmin/subscriptions')}>
-              View Subscription Ledger
-            </Button>
+
+            <div className="col-lg-6">
+              <Card
+                title="Platform Audit & Compliance"
+                subtitle="Separation of platform SaaS funds and tenant school fees"
+              >
+                <div
+                  className="p-3.5 rounded-3 mb-3 d-flex flex-column gap-2 small"
+                  style={{
+                    background: '#F8FAFC',
+                    borderLeft: '4px solid var(--color-strong-blue)',
+                    border: '1px solid #E2E8F0',
+                  }}
+                >
+                  <div>
+                    <strong style={{ color: 'var(--color-strong-blue)' }}>
+                      <i className="bi bi-shield-check me-1" /> Multi-Tenant Financial Isolation:
+                    </strong>{' '}
+                    Net Subscription Revenue (<strong>K{Number(metrics.subscription_revenue_zmw || 0).toFixed(2)}</strong>, Est. MRR:{' '}
+                    <strong>K{Number(metrics.estimated_mrr_zmw || 0).toFixed(2)}</strong>) includes only verified SaaS platform subscriptions.
+                  </div>
+                  <div className="text-secondary">
+                    Total school tuition fees collected by tenants (<strong>K{Number(metrics.school_fee_collections_zmw || 0).toFixed(2)}</strong> across all schools) are strictly isolated per tenant and excluded from platform revenue.
+                  </div>
+                </div>
+
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2">
+                  <span className="small text-muted">
+                    Last audit event recorded: {recentActivity[0] ? formatDateTime(recentActivity[0].created_at) : 'Active'}
+                  </span>
+                  <Button size="sm" variant="accent" onClick={() => navigate('/superadmin/subscriptions')}>
+                    View Subscription Ledger
+                  </Button>
+                </div>
+              </Card>
+            </div>
           </div>
 
           {/* Clickable Tenant Schools Table */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AppLayout, NavItem } from '../layouts/AppLayout';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import {
   AlertBanner,
   Badge,
@@ -13,20 +14,27 @@ import {
   Modal,
   StatCard,
 } from '../components/ui';
+import {
+  DashboardHeader,
+  StatisticCard as ModernStatCard,
+  DonutChart,
+  QuickActionGrid,
+} from '../components/dashboard';
 
 const STUDENT_NAV: NavItem[] = [
-  { id: 'dashboard', label: 'My Dashboard', icon: 'bi-grid-1x2-fill' },
-  { id: 'timetable', label: 'My Timetable', icon: 'bi-calendar3-week' },
-  { id: 'attendance', label: 'My Attendance', icon: 'bi-calendar2-check-fill' },
-  { id: 'results', label: 'Exam Results & Report Card', icon: 'bi-award-fill' },
-  { id: 'fees', label: 'School Fees & Payments', icon: 'bi-wallet2' },
-  { id: 'assignments', label: 'Assignments', icon: 'bi-journal-text' },
-  { id: 'materials', label: 'Study Materials', icon: 'bi-book-half' },
-  { id: 'announcements', label: 'Announcements', icon: 'bi-megaphone-fill' },
+  { id: 'dashboard', label: 'My Dashboard', icon: 'bi-grid-1x2-fill', section: 'OVERVIEW' },
+  { id: 'results', label: 'Exam Results & Report Card', icon: 'bi-award-fill', section: 'ACADEMICS' },
+  { id: 'timetable', label: 'My Timetable', icon: 'bi-calendar3-week', section: 'ACADEMICS' },
+  { id: 'attendance', label: 'My Attendance', icon: 'bi-calendar2-check-fill', section: 'ACADEMICS' },
+  { id: 'assignments', label: 'Assignments', icon: 'bi-journal-text', section: 'LEARNING' },
+  { id: 'materials', label: 'Study Materials', icon: 'bi-book-half', section: 'LEARNING' },
+  { id: 'fees', label: 'School Fees & Payments', icon: 'bi-wallet2', section: 'FINANCE' },
+  { id: 'announcements', label: 'Announcements', icon: 'bi-megaphone-fill', section: 'COMMUNICATION' },
 ];
 
 export const StudentPortal: React.FC = () => {
   const navigate = useNavigate();
+  const { user, school } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -113,95 +121,280 @@ export const StudentPortal: React.FC = () => {
 
       {activeTab === 'dashboard' && (
         <>
+          <DashboardHeader
+            title="Student Learning Space"
+            userName={student.first_name ? `${student.first_name} ${student.last_name}` : user?.username || 'Student'}
+            userRole="Student Portal"
+            schoolName={school?.name || student.school_name || 'SchoolStacks Academy'}
+            academicTerm={data?.active_term?.name || 'Term 1'}
+            academicYear={data?.active_term?.academic_year || '2026'}
+            badgeText={`Admission: ${student.admission_no || '-'}`}
+            badgeVariant="blue"
+            quickStats={[
+              {
+                label: 'Class',
+                value: student.class_name || '—',
+                icon: 'bi-person-vcard',
+              },
+              {
+                label: 'Attendance',
+                value: `${attendance.length > 0 ? Math.round((attendance.filter((a: any) => a.status === 'Present' || a.status === 'Late').length / attendance.length) * 100) : 100}%`,
+                icon: 'bi-calendar2-check',
+              },
+              {
+                label: 'Fee Balance',
+                value: `K${totalBalance.toFixed(0)}`,
+                icon: 'bi-wallet2',
+              },
+            ]}
+            actions={
+              totalBalance > 0 ? (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  icon="bi-cash-coin"
+                  onClick={() => setActiveTab('fees')}
+                >
+                  Pay Tuition
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon="bi-award"
+                  onClick={() => setActiveTab('results')}
+                >
+                  View Grades
+                </Button>
+              )
+            }
+          />
+
+          {/* Quick Actions */}
+          <div className="mb-4">
+            <QuickActionGrid
+              columns={4}
+              actions={[
+                {
+                  icon: 'bi-award-fill',
+                  label: 'Exam Results',
+                  description: 'Published marks & grades',
+                  color: '#002583',
+                  onClick: () => setActiveTab('results'),
+                },
+                {
+                  icon: 'bi-calendar3-week',
+                  label: 'Class Timetable',
+                  description: 'Weekly schedule & periods',
+                  color: '#7C3AED',
+                  onClick: () => setActiveTab('timetable'),
+                },
+                {
+                  icon: 'bi-calendar2-check-fill',
+                  label: 'My Attendance',
+                  description: 'Daily roll call history',
+                  color: '#059669',
+                  onClick: () => setActiveTab('attendance'),
+                },
+                {
+                  icon: 'bi-wallet2',
+                  label: 'Tuition Fees',
+                  description: 'Online payments & receipts',
+                  color: '#D97706',
+                  badge: totalBalance > 0 ? `K${totalBalance.toFixed(0)}` : undefined,
+                  onClick: () => setActiveTab('fees'),
+                },
+              ]}
+            />
+          </div>
+
+          {/* Modern Statistic Cards */}
           <div className="row g-3 mb-4">
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-person-vcard-fill"
-                label="Class"
+                label="Enrolled Class"
                 value={student.class_name || '—'}
                 variant="blue"
+                trend={{
+                  text: student.class_teacher_name ? `Teacher: ${student.class_teacher_name}` : 'Enrolled',
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('timetable')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-wallet2"
-                label="Outstanding Fees (ZMW)"
-                value={`K${totalBalance.toFixed(2)}`}
-                variant="mustard"
-                accentTop
+              <ModernStatCard
+                icon="bi-calendar2-check-fill"
+                label="Term Attendance"
+                value={`${attendance.length > 0 ? Math.round((attendance.filter((a: any) => a.status === 'Present' || a.status === 'Late').length / attendance.length) * 100) : 100}%`}
+                variant="emerald"
+                trend={{
+                  text: `${attendance.filter((a: any) => a.status === 'Present').length} Present of ${attendance.length} Days`,
+                  positive: true,
+                }}
+                onClick={() => setActiveTab('attendance')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
+              <ModernStatCard
                 icon="bi-award-fill"
                 label="Published Results"
                 value={results.length}
+                variant="purple"
+                trend={{
+                  text: results.length > 0 ? `${results.filter((r: any) => (r.marks || 0) >= 50).length} Subjects Passed` : 'Pending Term Exams',
+                  positive: results.length > 0,
+                }}
+                onClick={() => setActiveTab('results')}
               />
             </div>
             <div className="col-sm-6 col-xl-3">
-              <StatCard
-                icon="bi-journal-text"
-                label="Class Assignments"
-                value={assignments.length}
+              <ModernStatCard
+                icon="bi-wallet2"
+                label="Tuition Balance"
+                value={`K${totalBalance.toFixed(2)}`}
+                variant={totalBalance > 0 ? 'rose' : 'emerald'}
+                trend={{
+                  text: totalBalance > 0 ? 'Payment Outstanding' : 'Fees Cleared in Full',
+                  positive: totalBalance <= 0,
+                }}
+                onClick={() => setActiveTab('fees')}
               />
             </div>
           </div>
 
-          <div className="row g-4">
-            <div className="col-lg-6">
+          {/* Results & Attendance Breakdown Row */}
+          <div className="row g-4 mb-4">
+            <div className="col-lg-7">
               <Card
-                title="Term Fee Balances"
+                title="Recent Academic Results"
+                subtitle="Approved term assessment and examination marks"
                 actions={
-                  <Button size="sm" variant="accent" onClick={() => setActiveTab('fees')}>
-                    Pay Fees Online
-                  </Button>
+                  <div className="d-flex gap-2">
+                    {data?.terms?.[0]?.id && (
+                      <a
+                        href={`/student/report-card/${student.id}/${data.terms[0].id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="edu-btn edu-btn-outline edu-btn-sm text-decoration-none"
+                      >
+                        <i className="bi bi-file-earmark-pdf-fill me-1" /> PDF Report Card
+                      </a>
+                    )}
+                    <Button size="sm" variant="accent" onClick={() => setActiveTab('results')}>
+                      All Results
+                    </Button>
+                  </div>
                 }
               >
-                <DataTable
-                  rows={feeBalances}
-                  columns={[
-                    { header: 'Term', render: (b) => <span className="fw-bold">{b.term_name}</span> },
-                    {
-                      header: 'Balance (ZMW)',
-                      render: (b) => (
-                        <span className="fw-bold">K{Number(b.balance || 0).toFixed(2)}</span>
-                      ),
-                    },
-                    {
-                      header: 'Action',
-                      render: (b) =>
-                        b.balance > 0 ? (
-                          <Button
-                            size="sm"
-                            variant="accent"
-                            onClick={() => {
-                              setCheckoutTerm(b);
-                              setPayAmount(String(b.balance));
-                            }}
-                          >
-                            Pay Now
-                          </Button>
-                        ) : (
-                          <Badge variant="success">Cleared</Badge>
+                {results.length === 0 ? (
+                  <div className="text-muted small py-4 text-center">
+                    No examination results have been published for this term yet.
+                  </div>
+                ) : (
+                  <DataTable
+                    rows={results}
+                    columns={[
+                      { header: 'Subject', render: (r) => <span className="fw-bold text-dark">{r.subject}</span> },
+                      {
+                        header: 'Score',
+                        render: (r) => (
+                          <span className={`fw-bold ${r.marks >= 50 ? 'text-success' : 'text-danger'}`}>
+                            {r.marks}%
+                          </span>
                         ),
-                    },
-                  ]}
-                />
+                      },
+                      {
+                        header: 'Grade',
+                        render: (r) => (
+                          <Badge variant={r.marks >= 50 ? 'success' : 'danger'}>
+                            {r.grade || (r.marks >= 75 ? 'Distinction' : r.marks >= 50 ? 'Credit' : 'Fail')}
+                          </Badge>
+                        ),
+                      },
+                    ]}
+                  />
+                )}
               </Card>
             </div>
-            <div className="col-lg-6">
-              <Card title="Recent Exam Results">
-                <DataTable
-                  rows={results}
-                  columns={[
-                    { header: 'Subject', render: (r) => <span className="fw-bold">{r.subject}</span> },
-                    { header: 'Marks', render: (r) => `${r.marks}%` },
-                    { header: 'Grade', render: (r) => <Badge variant="mustard">{r.grade}</Badge> },
+
+            <div className="col-lg-5">
+              <Card title="Attendance Summary" subtitle="Term record">
+                <DonutChart
+                  data={[
+                    {
+                      label: 'Present',
+                      value: attendance.filter((a: any) => a.status === 'Present').length,
+                      color: '#10B981',
+                    },
+                    {
+                      label: 'Late',
+                      value: attendance.filter((a: any) => a.status === 'Late').length,
+                      color: '#F59E0B',
+                    },
+                    {
+                      label: 'Absent',
+                      value: attendance.filter((a: any) => a.status === 'Absent').length,
+                      color: '#EF4444',
+                    },
+                    {
+                      label: 'Excused',
+                      value: attendance.filter((a: any) => a.status === 'Excused' || a.status === 'Sick').length,
+                      color: '#3B82F6',
+                    },
                   ]}
+                  centerValue={`${attendance.length > 0 ? Math.round((attendance.filter((a: any) => a.status === 'Present' || a.status === 'Late').length / attendance.length) * 100) : 100}%`}
+                  centerLabel="Present"
+                  unit="%"
                 />
               </Card>
             </div>
           </div>
+
+          {/* Term Fee Balances Card */}
+          <Card
+            title="School Fee Statements & Online Checkout"
+            subtitle="Secure payment via MTN, Airtel, and Zamtel mobile money"
+            actions={
+              <Button size="sm" variant="accent" onClick={() => setActiveTab('fees')}>
+                Manage Fees
+              </Button>
+            }
+          >
+            <DataTable
+              rows={feeBalances}
+              columns={[
+                { header: 'Term', render: (b) => <span className="fw-bold">{b.term_name}</span> },
+                {
+                  header: 'Balance Due (ZMW)',
+                  render: (b) => (
+                    <span className="fw-bold" style={{ color: b.balance > 0 ? '#DC2626' : '#059669' }}>
+                      K{Number(b.balance || 0).toFixed(2)}
+                    </span>
+                  ),
+                },
+                {
+                  header: 'Action',
+                  render: (b) =>
+                    b.balance > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="accent"
+                        onClick={() => {
+                          setCheckoutTerm(b);
+                          setPayAmount(String(b.balance));
+                        }}
+                      >
+                        <i className="bi bi-credit-card-2-front me-1" /> Pay Now
+                      </Button>
+                    ) : (
+                      <Badge variant="success">Cleared</Badge>
+                    ),
+                },
+              ]}
+            />
+          </Card>
         </>
       )}
 
