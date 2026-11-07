@@ -16,6 +16,7 @@ REQUIRED_COLUMNS = {
         ("last_activity_at", "TIMESTAMP"),
         ("suspended_at", "TIMESTAMP"),
         ("suspension_reason", "TEXT"),
+        ("currency", "VARCHAR(10) DEFAULT 'ZMW'"),
     ],
     "users": [
         ("last_login_at", "TIMESTAMP"),
@@ -54,6 +55,7 @@ REQUIRED_COLUMNS = {
         ("is_active", "BOOLEAN DEFAULT TRUE"),
         ("grade_level", "VARCHAR(50)"),
         ("academic_year", "VARCHAR(50)"),
+        ("class_teacher_id", "INTEGER"),
     ],
     "subjects": [
         ("is_active", "BOOLEAN DEFAULT TRUE"),
@@ -78,6 +80,13 @@ REQUIRED_COLUMNS = {
     "attendance": [
         ("recorded_by_id", "INTEGER"),
         ("updated_at", "TIMESTAMP"),
+        ("remarks", "VARCHAR(255)"),
+    ],
+    "results": [
+        ("status", "VARCHAR(20) DEFAULT 'draft'"),
+        ("remarks", "VARCHAR(255)"),
+        ("created_at", "TIMESTAMP"),
+        ("updated_at", "TIMESTAMP"),
     ],
     "assignments": [
         ("assignment_date", "DATE"),
@@ -101,14 +110,23 @@ REQUIRED_COLUMNS = {
 
 def ensure_schema_columns(db):
     """Add missing columns to existing tables safely without destructive operations."""
-    inspector = inspect(db.engine)
-    existing_tables = set(inspector.get_table_names())
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+    except Exception as exc:
+        logger.error("Could not inspect database tables during schema verification: %s", exc)
+        return
 
     for table_name, columns in REQUIRED_COLUMNS.items():
         if table_name not in existing_tables:
             continue
 
-        existing_cols = {col["name"] for col in inspector.get_columns(table_name)}
+        try:
+            existing_cols = {col["name"] for col in inspector.get_columns(table_name)}
+        except Exception as exc:
+            logger.warning("Could not inspect columns for table %s: %s", table_name, exc)
+            continue
+
         for col_name, col_type in columns:
             if col_name not in existing_cols:
                 stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"
@@ -116,6 +134,7 @@ def ensure_schema_columns(db):
                     db.session.execute(text(stmt))
                     db.session.commit()
                     logger.info("Added missing column %s.%s", table_name, col_name)
+                    existing_cols.add(col_name)
                 except Exception as exc:
                     db.session.rollback()
                     logger.warning("Could not add column %s.%s: %s", table_name, col_name, exc)
@@ -128,3 +147,31 @@ def ensure_schema_columns(db):
         except Exception as exc:
             db.session.rollback()
             logger.debug("Could not backfill exam start/end dates: %s", exc)
+
+    # Safe backfill for school currency
+    if "schools" in existing_tables:
+        try:
+            db.session.execute(text("UPDATE schools SET currency = 'ZMW' WHERE currency IS NULL"))
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.debug("Could not backfill school currency: %s", exc)
+
+    # Safe backfill for historical results (preserve legacy results as published)
+    if "results" in existing_tables:
+        try:
+            db.session.execute(text("UPDATE results SET status = 'published' WHERE status IS NULL"))
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.debug("Could not backfill result status: %s", exc)
+
+    # Keep alembic_version in sync if the table exists
+    if "alembic_version" in existing_tables:
+        try:
+            db.session.execute(text("DELETE FROM alembic_version"))
+            db.session.execute(text("INSERT INTO alembic_version (version_num) VALUES ('0005_schools_currency_and_schema_sync')"))
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.debug("Could not sync alembic_version: %s", exc)
