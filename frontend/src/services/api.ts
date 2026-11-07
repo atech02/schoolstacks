@@ -6,6 +6,7 @@ export interface UserInfo {
   school_id: number | null;
   student_id: number | null;
   is_verified: boolean;
+  must_change_password?: boolean;
 }
 
 export interface SchoolInfo {

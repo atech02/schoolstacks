@@ -22,6 +22,7 @@ from models import (
     Parent,
     ParentStudent,
     Result,
+    Attendance,
     Material,
     Assignment,
     Submission,
@@ -227,19 +228,27 @@ def report_card_pdf(student_id, term_id):
             abort(403)
     elif current_user.role == "parent":
         parent = Parent.query.filter_by(school_id=school_id, user_id=current_user.id).first()
-        if not parent or not ParentStudent.query.filter_by(
-            school_id=school_id, parent_id=parent.id, student_id=s.id
-        ).first():
+        is_linked = False
+        if parent:
+            if s.parent_id == parent.id:
+                is_linked = True
+            elif ParentStudent.query.filter_by(
+                school_id=school_id, parent_id=parent.id, student_id=s.id
+            ).first():
+                is_linked = True
+        if not is_linked:
             abort(403)
     elif current_user.role not in ("admin", "teacher", "superadmin"):
         abort(403)
 
+    # Strictly include only approved and published results on the official report card
     results = (
         Result.query.join(Exam)
         .filter(
             Result.school_id == school_id,
             Result.student_id == s.id,
             Exam.term_id == term.id,
+            (Result.status.in_(["published", "approved"]) | Result.status.is_(None)),
         )
         .all()
     )
@@ -262,14 +271,47 @@ def report_card_pdf(student_id, term_id):
         average     = total_marks / len(results)
         final_grade = calculate_grade(average)
 
+    # Attendance statistics
+    att_records = Attendance.query.filter_by(school_id=school_id, student_id=s.id).all()
+    days_present = sum(1 for a in att_records if a.status in ("Present", "Late"))
+    days_absent = sum(1 for a in att_records if a.status in ("Absent", "Sick", "Excused"))
+    total_days = len(att_records)
+    attendance_rate = round((days_present / total_days) * 100, 1) if total_days > 0 else 100.0
+
+    # Class rank calculation based exclusively on published marks
+    class_students = Student.query.filter_by(school_id=school_id, class_id=s.class_id).all()
+    student_totals = {}
+    for cs in class_students:
+        c_res = (
+            Result.query.join(Exam)
+            .filter(
+                Result.school_id == school_id,
+                Result.student_id == cs.id,
+                Exam.term_id == term.id,
+                (Result.status.in_(["published", "approved"]) | Result.status.is_(None)),
+            )
+            .all()
+        )
+        student_totals[cs.id] = sum(cr.marks for cr in c_res) if c_res else 0.0
+
+    sorted_ranks = sorted(student_totals.items(), key=lambda x: x[1], reverse=True)
+    class_rank = next((idx + 1 for idx, (sid, _) in enumerate(sorted_ranks) if sid == s.id), 1)
+
     html = render_template(
         "student/report_card_pdf.html",
         student=s,
+        school=s.school,
         term=term,
         report=report,
         total=round(total_marks, 2),
         average=round(average, 2),
         final_grade=final_grade,
+        days_present=days_present,
+        days_absent=days_absent,
+        total_days=total_days,
+        attendance_rate=attendance_rate,
+        class_rank=class_rank,
+        class_size=len(class_students),
         now=utc_now(),
     )
 

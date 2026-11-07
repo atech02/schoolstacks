@@ -10,12 +10,25 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 def _get_database_url():
     db_url = os.environ.get("DATABASE_URL", "").strip()
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
     if not db_url:
-        instance_dir = os.path.join(BASE_DIR, "instance")
-        os.makedirs(instance_dir, exist_ok=True)
-        db_url = f"sqlite:///{os.path.join(instance_dir, 'edumanage.db')}"
+        if os.environ.get("VERCEL"):
+            instance_dir = "/tmp"
+        else:
+            instance_dir = os.path.join(BASE_DIR, "instance")
+            try:
+                os.makedirs(instance_dir, exist_ok=True)
+            except OSError:
+                instance_dir = "/tmp"
+        return f"sqlite:///{os.path.join(instance_dir, 'edumanage.db')}"
+
+    # Normalize PostgreSQL dialect schemes to postgresql+psycopg:// for SQLAlchemy 2.x
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgresql+psycopg2://"):
+        db_url = db_url.replace("postgresql+psycopg2://", "postgresql+psycopg://", 1)
+    elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
     return db_url
 
 
@@ -37,17 +50,24 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
+        "pool_recycle": 300,
     }
+    if SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+            "connect_timeout": 15,
+        }
 
     # ── Multi-tenant & Domain ──────────────────────────────────────
     BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost")
     APP_PROTOCOL = os.environ.get("APP_PROTOCOL", "https" if IS_PRODUCTION else "http")
     SUPERADMIN_EMAIL = os.environ.get("SUPERADMIN_EMAIL", "superadmin@edumanage.zm")
+    SUPERADMIN_RECOVERY_TOKEN = os.environ.get("SUPERADMIN_RECOVERY_TOKEN", "").strip()
 
     # ── Uploads ────────────────────────────────────────────────────
-    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(BASE_DIR, "uploads", "materials"))
-    ASSIGNMENT_UPLOAD = os.environ.get("ASSIGNMENT_UPLOAD", os.path.join(BASE_DIR, "uploads", "assignments"))
-    ANNOUNCEMENT_UPLOAD = os.environ.get("ANNOUNCEMENT_UPLOAD", os.path.join(BASE_DIR, "uploads", "announcements"))
+    _upload_base = "/tmp/uploads" if os.environ.get("VERCEL") else os.path.join(BASE_DIR, "uploads")
+    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(_upload_base, "materials"))
+    ASSIGNMENT_UPLOAD = os.environ.get("ASSIGNMENT_UPLOAD", os.path.join(_upload_base, "assignments"))
+    ANNOUNCEMENT_UPLOAD = os.environ.get("ANNOUNCEMENT_UPLOAD", os.path.join(_upload_base, "announcements"))
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
     ALLOWED_EXTENSIONS = {"pdf", "doc", "docx", "txt", "png", "jpg", "jpeg"}
 

@@ -2,11 +2,15 @@
 utils.py — Helpers, decorators, multi-tenant enforcement, and plan enforcement
 """
 import os
+import hmac
+import json
 import secrets
 from datetime import datetime
 from functools import wraps
 from flask import redirect, url_for, flash, g, current_app, abort
 from flask_login import current_user
+from sqlalchemy import func
+from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
 
 
@@ -373,4 +377,181 @@ def record_activity(
         db.session.commit()
 
     return entry
+
+
+def find_user_for_login(identifier: str, school_subdomain: str | None = None, target_school=None):
+    """
+    Look up a user attempting to sign in by username OR email address.
+    Supports case-insensitive matching for usernames, emails, and the platform superadmin.
+
+    Resolution order:
+    1. Superadmin Check (by username 'superadmin' OR by superadmin email):
+       Superadmin is a platform-wide role (school_id=None). If identifier matches 'superadmin'
+       or any registered superadmin email, or the configured SUPERADMIN_EMAIL env variable,
+       resolve to the platform superadmin regardless of whether a school is selected in the UI.
+    2. School-scoped lookup:
+       If target_school or school_subdomain is specified, look up within that school by
+       username (case-insensitive) or email (case-insensitive).
+    3. Single-school convenience fallback:
+       If no school was specified and only 1 active school exists in the system, search that school.
+    4. Global fallback across users:
+       If no school was specified and no user was found yet, search all users by email or username.
+    """
+    from models import User, School
+
+    if not identifier:
+        return None
+
+    clean_id = identifier.strip()
+    id_lower = clean_id.lower()
+
+    # 1. Platform Superadmin resolution (by username 'superadmin' OR by superadmin email)
+    sa_email_env = (
+        os.environ.get("SUPERADMIN_EMAIL")
+        or (current_app.config.get("SUPERADMIN_EMAIL") if current_app else "")
+        or ""
+    ).strip().lower()
+
+    if id_lower == "superadmin" or (sa_email_env and id_lower == sa_email_env):
+        sa = User.query.filter_by(role="superadmin").first()
+        if sa:
+            return sa
+
+    # Check if this identifier matches any existing superadmin's email directly
+    sa_by_email = User.query.filter(
+        User.role == "superadmin",
+        func.lower(User.email) == id_lower
+    ).first()
+    if sa_by_email:
+        return sa_by_email
+
+    # Resolve target school
+    resolved_school = target_school
+    if not resolved_school and school_subdomain:
+        clean_sub = school_subdomain.strip().lower()
+        resolved_school = School.query.filter_by(subdomain=clean_sub, is_active=True).first()
+
+    # 2. School-scoped lookup (username or email case-insensitive)
+    if resolved_school:
+        user = User.query.filter(
+            User.school_id == resolved_school.id,
+            (func.lower(User.username) == id_lower) | (func.lower(User.email) == id_lower)
+        ).first()
+        if user:
+            return user
+
+    # 3. Single-school convenience fallback
+    if not resolved_school:
+        active_schools = School.query.filter_by(is_active=True).all()
+        if len(active_schools) == 1:
+            user = User.query.filter(
+                User.school_id == active_schools[0].id,
+                (func.lower(User.username) == id_lower) | (func.lower(User.email) == id_lower)
+            ).first()
+            if user:
+                return user
+
+    # 4. Global fallback across users (by email or username)
+    user = User.query.filter(
+        (func.lower(User.username) == id_lower) | (func.lower(User.email) == id_lower)
+    ).first()
+    return user
+
+
+def handle_superadmin_recovery(data: dict | None = None, header_token: str | None = None) -> tuple[dict, int]:
+    """
+    Secure administrative recovery for the Platform Superadmin account.
+    Requires server-side SUPERADMIN_RECOVERY_TOKEN in environment variables.
+
+    Security & Idempotency:
+    - Returns 403 Forbidden if SUPERADMIN_RECOVERY_TOKEN is not configured on the server.
+    - Uses constant-time hmac.compare_digest to prevent timing attacks.
+    - Updates or provisions the Superadmin account using server environment credentials
+      (SUPERADMIN_PASSWORD or ADMIN_PASSWORD, and SUPERADMIN_EMAIL) or authorized payload data.
+    - Password is encrypted using werkzeug generate_password_hash; never logged or returned in plain text.
+    - Enforces must_change_password=True.
+    - Emits a security audit record.
+    """
+    from models import User
+
+    configured_token = (
+        os.environ.get("SUPERADMIN_RECOVERY_TOKEN")
+        or (current_app.config.get("SUPERADMIN_RECOVERY_TOKEN") if current_app else "")
+        or ""
+    ).strip()
+
+    if not configured_token:
+        return {
+            "error": "Superadmin recovery is disabled. Configure SUPERADMIN_RECOVERY_TOKEN in server environment variables to enable recovery."
+        }, 403
+
+    payload = data or {}
+    provided_token = (header_token or payload.get("recovery_token") or "").strip()
+
+    if not provided_token or not hmac.compare_digest(provided_token, configured_token):
+        record_activity(
+            "security",
+            "superadmin_recovery_failed",
+            "Unauthorized attempt to invoke superadmin recovery endpoint (invalid or missing token).",
+            status="failed",
+            commit=True,
+        )
+        return {"error": "Invalid recovery token."}, 401
+
+    new_password = (
+        payload.get("new_password")
+        or os.environ.get("SUPERADMIN_PASSWORD")
+        or os.environ.get("ADMIN_PASSWORD")
+    )
+    if not new_password:
+        return {
+            "error": "No new password provided in payload, and neither SUPERADMIN_PASSWORD nor ADMIN_PASSWORD is set in server environment."
+        }, 400
+
+    target_email = (
+        payload.get("email")
+        or os.environ.get("SUPERADMIN_EMAIL")
+        or (current_app.config.get("SUPERADMIN_EMAIL") if current_app else None)
+        or "superadmin@edumanage.zm"
+    ).strip().lower()
+
+    # Locate existing superadmin
+    sa = User.query.filter_by(role="superadmin").first()
+    if not sa:
+        sa = User.query.filter(func.lower(User.email) == target_email).first()
+
+    if not sa:
+        sa = User(
+            school_id=None,
+            username="superadmin",
+            email=target_email,
+            password_hash=generate_password_hash(new_password),
+            role="superadmin",
+            is_verified=True,
+            must_change_password=True,
+        )
+        db.session.add(sa)
+    else:
+        sa.username = "superadmin"
+        sa.email = target_email
+        sa.password_hash = generate_password_hash(new_password)
+        sa.is_verified = True
+        sa.must_change_password = True
+
+    db.session.commit()
+
+    record_activity(
+        "security",
+        "superadmin_password_recovered",
+        f"Superadmin account credentials securely recovered for '{target_email}'.",
+        status="warning",
+        commit=True,
+    )
+
+    return {
+        "message": "Superadmin credentials recovered successfully.",
+        "username": sa.username,
+        "email": sa.email,
+        "must_change_password": True,
+    }, 200
 

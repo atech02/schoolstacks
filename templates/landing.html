@@ -60,104 +60,214 @@
 		.btn-nav:hover { background: var(--color-mustard-hover) !important; }
 
 		.hero {
-			padding: 144px 5% 104px;
-			min-height: 600px;
+			padding: 160px 5% 110px;
+			min-height: 86vh;
 			display: flex;
 			align-items: center;
 			position: relative;
 			overflow: hidden;
+			background-color: #001242;
+			isolation: isolate;
+		}
+		.hero-bg-media-container {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 1;
+			overflow: hidden;
+			pointer-events: none;
+			user-select: none;
+		}
+		.hero-bg-fullscreen-img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+			object-position: 78% center;
+			filter: brightness(0.96) contrast(1.05) saturate(1.08);
+			opacity: 0;
+			transform: scale(1.04);
+			animation: heroBgReveal 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.1s;
+			will-change: transform, opacity;
+		}
+		@keyframes heroBgReveal {
+			0% { opacity: 0; transform: scale(1.04); }
+			100% { opacity: 0.92; transform: scale(1); }
+		}
+		.hero-cinematic-overlay {
+			position: absolute;
+			inset: 0;
+			z-index: 2;
+			pointer-events: none;
+			opacity: 0;
+			animation: heroOverlayReveal 1.3s ease-out forwards 0.2s;
+			background:
+				linear-gradient(
+					90deg,
+					rgba(0, 15, 51, 0.97) 0%,
+					rgba(0, 20, 71, 0.95) 26%,
+					rgba(0, 37, 131, 0.88) 42%,
+					rgba(0, 37, 131, 0.60) 58%,
+					rgba(0, 24, 88, 0.30) 74%,
+					rgba(0, 20, 71, 0.18) 100%
+				),
+				linear-gradient(
+					180deg,
+					rgba(0, 15, 51, 0.76) 0%,
+					rgba(0, 20, 71, 0.28) 22%,
+					transparent 45%
+				),
+				linear-gradient(
+					0deg,
+					rgba(0, 15, 51, 0.96) 0%,
+					rgba(0, 20, 71, 0.55) 16%,
+					transparent 38%
+				),
+				radial-gradient(
+					circle at 84% 20%,
+					rgba(255, 184, 0, 0.14) 0%,
+					transparent 45%
+				);
+		}
+		@keyframes heroOverlayReveal {
+			0% { opacity: 0; }
+			100% { opacity: 1; }
 		}
 		.hero-inner {
 			position: relative;
-			z-index: 2;
-			max-width: 780px;
+			z-index: 10;
+			max-width: 680px;
 		}
 		.hero-eyebrow {
 			display: inline-flex; align-items: center; gap: 8px;
-			background: rgba(255, 184, 0, 0.14);
-			border: 1px solid rgba(255, 184, 0, 0.42);
+			background: rgba(255, 184, 0, 0.16);
+			border: 1px solid rgba(255, 184, 0, 0.48);
 			border-radius: 999px; padding: 6px 16px;
 			font-size: .75rem; font-weight: 700; color: var(--color-mustard);
 			text-transform: uppercase; letter-spacing: 1px;
 			margin-bottom: 24px;
 			backdrop-filter: blur(6px);
+			opacity: 0;
+			transform: translateY(18px);
+			animation: heroContentReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.25s;
 		}
 		.hero h1 {
-			font-family: 'Sora', sans-serif;
-			font-size: clamp(2.15rem, 5vw, 3.65rem);
-			font-weight: 800; line-height: 1.1;
-			color: var(--color-white); letter-spacing: -.5px;
+			font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			font-size: clamp(2.35rem, 5.2vw, 3.85rem);
+			font-weight: 800; line-height: 1.14;
+			color: var(--color-white); letter-spacing: -.025em;
 			margin-bottom: 20px;
-			text-shadow: 0 2px 18px rgba(0, 24, 88, 0.55);
+			text-shadow: 0 2px 24px rgba(0, 15, 51, 0.75), 0 1px 4px rgba(0, 15, 51, 0.9);
+			opacity: 0;
+			transform: translateY(22px);
+			animation: heroContentReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.4s;
 		}
-		.hero h1 .line-gold { color: var(--color-mustard); display: block; }
+		.hero h1 .line-gold {
+			color: var(--color-mustard);
+			display: block;
+			text-shadow: 0 2px 22px rgba(255, 184, 0, 0.38);
+		}
 		.hero-sub {
 			color: var(--color-cool-gray);
-			font-size: 1.06rem; line-height: 1.75;
-			max-width: 600px; margin-bottom: 34px;
-			text-shadow: 0 1px 10px rgba(0, 24, 88, 0.45);
+			font-size: 1.125rem; line-height: 1.7;
+			max-width: 580px; margin-bottom: 34px;
+			text-shadow: 0 1px 12px rgba(0, 15, 51, 0.75);
+			opacity: 0;
+			transform: translateY(20px);
+			animation: heroContentReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.55s;
 		}
 		.hero-sub strong { color: var(--color-white); }
-		.hero-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+		.hero-cta {
+			display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+			opacity: 0;
+			transform: translateY(18px);
+			animation: heroContentReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.7s;
+		}
+		@keyframes heroContentReveal {
+			0% { opacity: 0; transform: translateY(20px); }
+			100% { opacity: 1; transform: translateY(0); }
+		}
 		.btn-hero-primary {
 			background: var(--color-mustard); color: var(--color-strong-blue);
-			border-radius: 10px; padding: 14px 28px;
-			font-weight: 700; font-size: .95rem;
-			text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
-			box-shadow: 0 8px 24px rgba(255, 184, 0, 0.28);
-			transition: background .2s, transform .15s;
+			border-radius: 12px; padding: 13px 26px;
+			font-weight: 700; font-size: .96rem;
+			text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+			box-shadow: 0 8px 24px rgba(255, 184, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.15);
+			transition: all .25s cubic-bezier(0.16, 1, 0.3, 1);
 		}
 		.btn-hero-primary:hover {
-			background: var(--color-mustard-hover);
+			background: #ffc425;
 			color: var(--color-strong-blue);
-			transform: translateY(-1px);
+			transform: translateY(-2px) scale(1.02);
+			box-shadow: 0 12px 30px rgba(255, 184, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.2);
 		}
 		.btn-hero-ghost {
 			background: rgba(229, 232, 239, 0.12); color: var(--color-white);
-			border: 1px solid rgba(229, 232, 239, 0.34); border-radius: 10px;
-			padding: 14px 24px; font-weight: 600; font-size: .95rem;
-			text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+			border: 1.5px solid rgba(229, 232, 239, 0.45); border-radius: 12px;
+			padding: 13px 24px; font-weight: 600; font-size: .96rem;
+			text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
 			backdrop-filter: blur(8px);
-			transition: background .2s, border-color .2s;
+			-webkit-backdrop-filter: blur(8px);
+			transition: all .25s cubic-bezier(0.16, 1, 0.3, 1);
 		}
 		.btn-hero-ghost:hover {
-			background: rgba(229, 232, 239, 0.22);
+			background: rgba(229, 232, 239, 0.24);
 			border-color: var(--color-mustard);
 			color: var(--color-white);
+			transform: translateY(-2px);
+			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 		}
 		.hero-note {
 			margin-top: 26px; color: var(--color-cool-gray);
 			font-size: .84rem; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+			opacity: 0;
+			transform: translateY(16px);
+			animation: heroContentReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.85s;
 		}
 		.hero-note i { color: var(--color-mustard); }
 
-		.features-section {
-			background: var(--color-cool-gray);
+		@media (prefers-reduced-motion: reduce) {
+			.hero-bg-fullscreen-img,
+			.hero-cinematic-overlay,
+			.hero-eyebrow,
+			.hero h1,
+			.hero-sub,
+			.hero-cta,
+			.hero-note {
+				animation: none !important;
+				opacity: 1 !important;
+				transform: none !important;
+				transition: none !important;
+			}
 		}
-		.feature-card {
-			background: var(--color-white);
-			border: 1px solid rgba(0, 37, 131, 0.12);
-			border-radius: 16px;
-			padding: 28px; height: 100%;
-			transition: transform .2s, box-shadow .2s, border-color .2s;
-		}
-		.feature-card:hover {
-			transform: translateY(-4px);
-			box-shadow: 0 14px 28px rgba(0, 37, 131, 0.08);
-			border-color: var(--color-mustard);
-		}
-		.feature-card h5 { color: var(--color-strong-blue); }
-		.feature-card p { color: rgba(0, 37, 131, 0.75); }
-		.feature-icon {
-			width: 48px; height: 48px; border-radius: 12px;
-			background: rgba(255, 184, 0, 0.18); color: var(--color-strong-blue);
-			border: 1px solid rgba(255, 184, 0, 0.45);
-			display: flex; align-items: center; justify-content: center;
-			font-size: 1.35rem; margin-bottom: 16px;
+
+		@media (max-width: 991.98px) {
+			.hero { padding: 140px 5% 90px; min-height: 720px; }
+			.hero-bg-fullscreen-img { object-position: 72% center; }
+			.hero-inner { max-width: 600px; }
+			.hero-cinematic-overlay {
+				background:
+					linear-gradient(90deg, rgba(0, 15, 51, 0.97) 0%, rgba(0, 20, 71, 0.95) 36%, rgba(0, 37, 131, 0.85) 62%, rgba(0, 24, 88, 0.42) 100%),
+					linear-gradient(180deg, rgba(0, 15, 51, 0.78) 0%, transparent 32%),
+					linear-gradient(0deg, rgba(0, 15, 51, 0.96) 0%, rgba(0, 20, 71, 0.6) 18%, transparent 45%);
+			}
 		}
 
 		@media (max-width: 767px) {
-			.hero { padding: 116px 5% 76px; min-height: 520px; }
+			.hero { padding: 116px 5% 70px; min-height: 620px; }
+			.hero-bg-fullscreen-img { object-position: 68% center; }
+			.hero-inner { max-width: 100%; }
+			.hero h1 { font-size: 2.15rem; line-height: 1.18; }
+			.hero-sub { font-size: 1rem; line-height: 1.6; margin-bottom: 24px; }
+			.hero-cinematic-overlay {
+				background:
+					linear-gradient(180deg, rgba(0, 15, 51, 0.88) 0%, rgba(0, 20, 71, 0.92) 40%, rgba(0, 15, 51, 0.98) 100%),
+					linear-gradient(90deg, rgba(0, 15, 51, 0.95) 0%, rgba(0, 37, 131, 0.80) 100%);
+			}
+			.hero-cta { flex-direction: column; align-items: stretch; gap: 12px; width: 100%; }
+			.btn-hero-primary, .btn-hero-ghost { justify-content: center; width: 100%; }
+			.nav-links { gap: 12px; }
+		}
 			.nav-links { gap: 12px; }
 		}
 	</style>
@@ -178,8 +288,8 @@
 		</nav>
 	</header>
 
-	<section class="hero shadergradient-hero-stage" aria-labelledby="hero-heading">
-		<!-- Isolated ShaderGradient WebGL Background (configured with official ShaderGradient props) -->
+	<section class="hero" aria-labelledby="hero-heading">
+		<!-- Layer 1: Ambient Restrained ShaderGradient -->
 		<div
 			class="shadergradient-mount"
 			aria-hidden="true"
@@ -189,15 +299,16 @@
 			data-color1="#002583"
 			data-color2="#FFB800"
 			data-color3="#E5E8EF"
-			data-u-speed="0.16"
-			data-u-strength="1.35"
-			data-u-density="1.15"
-			data-u-frequency="3.2"
-			data-u-amplitude="1.8"
-			data-brightness="1.08"
+			data-u-speed="0.10"
+			data-u-strength="1.15"
+			data-u-density="1.05"
+			data-u-frequency="2.8"
+			data-u-amplitude="1.5"
+			data-brightness="0.98"
 			data-pixel-density="1.0"
 			data-fov="45"
 			data-grain="on"
+			style="position:absolute;inset:0;z-index:1;opacity:0.35;mix-blend-mode:screen;"
 		>
 			<canvas
 				class="shadergradient-canvas"
@@ -207,12 +318,25 @@
 			></canvas>
 		</div>
 
-		<!-- Subtle protective contrast scrim behind text -->
+		<!-- Layer 2: Full-Width Background Image -->
+		<div class="hero-bg-media-container" aria-hidden="true">
+			<img
+				src="/images/heropic.png"
+				alt="Students collaborating on digital learning tablets in uniform"
+				class="hero-bg-fullscreen-img"
+				loading="eager"
+				decoding="async"
+			/>
+		</div>
+
+		<!-- Layer 3: Multi-Layer Cinematic Gradient Overlay -->
+		<div class="hero-cinematic-overlay" aria-hidden="true"></div>
 		<div class="hero-readability-scrim" aria-hidden="true"></div>
 
-		<div class="container" style="position: relative; z-index: 3;">
-			<div class="row align-items-center g-4 g-lg-5">
-				<div class="col-lg-6 hero-inner">
+		<!-- Layer 4: Left-Aligned Hero Content -->
+		<div class="container" style="position: relative; z-index: 10;">
+			<div class="row">
+				<div class="col-12 col-lg-8 col-xl-7 hero-inner">
 					<div class="hero-eyebrow">
 						<i class="bi bi-stars" aria-hidden="true"></i> Built for Zambian &amp; African Schools
 					</div>
@@ -237,20 +361,58 @@
 						<span><i class="bi bi-shield-lock-fill" aria-hidden="true"></i> Multi-Tenant School Isolation</span>
 					</div>
 				</div>
-				<div class="col-lg-6">
-					<div class="hero-image-stage">
-						<div class="hero-image-aura" aria-hidden="true"></div>
-						<div class="hero-image-float-wrap">
-							<div class="hero-image-blend-mask">
-								<img
-									src="/images/heropic.png"
-									alt="Students collaborating on digital learning tablets in uniform"
-									class="hero-blended-photo"
-									loading="eager"
-									decoding="async"
-								/>
-								<div class="hero-image-edge-blend" aria-hidden="true"></div>
-								<div class="hero-image-color-harmonizer" aria-hidden="true"></div>
+			</div>
+		</div>
+	</section>
+
+	<section id="features" class="features-two-col-section py-5 px-3 px-md-5" style="background-color: var(--color-cool-gray);">
+		<div class="container py-4">
+			<div class="text-center mb-5">
+				<span class="badge rounded-pill mb-2 px-3 py-1 text-uppercase" style="background: rgba(255, 184, 0, 0.2); color: var(--color-strong-blue); font-weight: 700; letter-spacing: 0.05em;">Key Platform Capabilities</span>
+				<h2 class="fw-bold mt-2" style="color:var(--color-strong-blue); font-size: 2.25rem;">Everything Your School Needs in One Place</h2>
+				<p style="color:rgba(0, 37, 131, 0.72); max-width: 620px; margin: 0 auto;">Purpose-built for modern educational institutions across Zambia and Africa with seamless fee collections, instant communication, and centralized management.</p>
+			</div>
+			<div class="row align-items-center g-4 g-lg-5">
+				<!-- Left Column — Feature Image -->
+				<div class="col-12 col-lg-6 order-1 order-lg-1">
+					<div class="feature-image-wrapper" style="border-radius: 20px; overflow: hidden; box-shadow: 0 20px 48px -12px rgba(0, 37, 131, 0.18); border: 1px solid rgba(0, 37, 131, 0.08); background: #FFFFFF;">
+						<img src="/images/feature.png" alt="School-Magi features dashboard" class="feature-preview-img" style="width: 100%; height: auto; display: block; border-radius: 20px;" loading="lazy">
+					</div>
+				</div>
+
+				<!-- Right Column — 3 Feature Blocks -->
+				<div class="col-12 col-lg-6 order-2 order-lg-2">
+					<div class="features-list-wrapper" style="display: flex; flex-direction: column; gap: 18px;">
+						<!-- Feature 1 -->
+						<div class="feature-block-card" style="background: #FFFFFF; border: 1.5px solid rgba(0, 37, 131, 0.08); border-radius: 16px; padding: 22px 24px; display: flex; align-items: flex-start; gap: 20px; box-shadow: 0 6px 18px -4px rgba(0, 37, 131, 0.06);">
+							<div class="feature-icon-badge" style="width: 50px; height: 50px; border-radius: 14px; background: rgba(0, 37, 131, 0.06); color: var(--color-strong-blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" aria-hidden="true">
+								<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+							</div>
+							<div>
+								<h3 class="feature-block-title" style="color: var(--color-strong-blue); font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">Seamless Mobile Payments</h3>
+								<p class="feature-block-desc" style="color: #4A5568; font-size: 0.94rem; line-height: 1.55; margin-bottom: 0;">Accept mobile money and card payments conveniently.</p>
+							</div>
+						</div>
+
+						<!-- Feature 2 -->
+						<div class="feature-block-card" style="background: #FFFFFF; border: 1.5px solid rgba(0, 37, 131, 0.08); border-radius: 16px; padding: 22px 24px; display: flex; align-items: flex-start; gap: 20px; box-shadow: 0 6px 18px -4px rgba(0, 37, 131, 0.06);">
+							<div class="feature-icon-badge" style="width: 50px; height: 50px; border-radius: 14px; background: rgba(0, 37, 131, 0.06); color: var(--color-strong-blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" aria-hidden="true">
+								<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/></svg>
+							</div>
+							<div>
+								<h3 class="feature-block-title" style="color: var(--color-strong-blue); font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">Instant SMS Communication</h3>
+								<p class="feature-block-desc" style="color: #4A5568; font-size: 0.94rem; line-height: 1.55; margin-bottom: 0;">Keep parents and guardians informed with timely updates.</p>
+							</div>
+						</div>
+
+						<!-- Feature 3 -->
+						<div class="feature-block-card" style="background: #FFFFFF; border: 1.5px solid rgba(0, 37, 131, 0.08); border-radius: 16px; padding: 22px 24px; display: flex; align-items: flex-start; gap: 20px; box-shadow: 0 6px 18px -4px rgba(0, 37, 131, 0.06);">
+							<div class="feature-icon-badge" style="width: 50px; height: 50px; border-radius: 14px; background: rgba(0, 37, 131, 0.06); color: var(--color-strong-blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" aria-hidden="true">
+								<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>
+							</div>
+							<div>
+								<h3 class="feature-block-title" style="color: var(--color-strong-blue); font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">Centralized School Administration</h3>
+								<p class="feature-block-desc" style="color: #4A5568; font-size: 0.94rem; line-height: 1.55; margin-bottom: 0;">Everything your school needs in one platform.</p>
 							</div>
 						</div>
 					</div>
@@ -259,41 +421,90 @@
 		</div>
 	</section>
 
-	<section id="features" class="features-section py-5 px-3 px-md-5">
-		<div class="container py-4">
-			<div class="text-center mb-5">
-				<h2 class="fw-bold" style="font-family:'Sora',sans-serif;color:var(--color-strong-blue);">Everything Your School Needs</h2>
-				<p style="color:rgba(0, 37, 131, 0.72);">Role-based portals for Administrators, Teachers, Students, and Parents</p>
-			</div>
-			<div class="row g-4">
-				<div class="col-md-4">
-					<div class="feature-card">
-						<div class="feature-icon"><i class="bi bi-phone-vibrate" aria-hidden="true"></i></div>
-						<h5 class="fw-bold">Online Fee &amp; Plan Payments</h5>
-						<p class="small mb-0">Collect school fees in ZMW via MTN MoMo, Airtel Money, Zamtel Kwacha, and bank cards with automatic digital receipts.</p>
-					</div>
-				</div>
-				<div class="col-md-4">
-					<div class="feature-card">
-						<div class="feature-icon"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></div>
-						<h5 class="fw-bold">Automated Report Cards</h5>
-						<p class="small mb-0">Teachers enter exam scores once; students and parents can view grades and download official report cards immediately.</p>
-					</div>
-				</div>
-				<div class="col-md-4">
-					<div class="feature-card">
-						<div class="feature-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></div>
-						<h5 class="fw-bold">Multi-Tenant Isolation</h5>
-						<p class="small mb-0">Each school operates in its own isolated workspace with dedicated classes, timetables, materials, and analytics.</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<footer class="py-4 text-center text-white" style="background:var(--color-strong-blue);font-size:.85rem;border-top:2px solid var(--color-mustard);">
+	<!-- Footer with Contact Us & PWA Download -->
+	<footer class="site-footer py-5 text-white" style="background:#001242; font-size:.9rem; border-top:3px solid var(--color-mustard);">
 		<div class="container">
-			&copy; 2026 EduManage School Management Platform &bull; A smarter way to manage your school
+			<div class="row g-4 g-lg-5">
+				<!-- Column 1 — Brand -->
+				<div class="col-12 col-md-6 col-lg-3">
+					<div class="mb-3 d-inline-flex flex-column align-items-start">
+						<div class="bg-white rounded px-2 py-1 shadow-sm d-inline-flex align-items-center">
+							<img src="/images/logo.jpg" alt="EduManage" style="width:130px;height:26px;object-fit:cover;object-position:center;display:block;">
+						</div>
+						<span style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:4px;font-weight:500;">A smarter way to manage your school</span>
+					</div>
+					<p class="small mb-3" style="color:var(--color-cool-gray); line-height:1.65;">
+						A complete multi-tenant digital school management platform for admissions, attendance, report cards, and verified online payments in ZMW.
+					</p>
+					<div class="d-flex align-items-center gap-2 small text-white-50">
+						<i class="bi bi-shield-check" style="color:var(--color-mustard);"></i>
+						<span>Multi-Tenant School Isolation</span>
+					</div>
+				</div>
+
+				<!-- Column 2 — Quick Links -->
+				<div class="col-6 col-md-6 col-lg-2">
+					<h6 class="fw-bold text-uppercase mb-3" style="font-size: 0.88rem; letter-spacing: 0.05em;">Quick Links</h6>
+					<ul class="list-unstyled mb-0" style="font-size: 0.88rem;">
+						<li class="mb-2"><a href="#" class="text-decoration-none" style="color:var(--color-cool-gray);"><i class="bi bi-chevron-right me-1"></i> Home</a></li>
+						<li class="mb-2"><a href="#features" class="text-decoration-none" style="color:var(--color-cool-gray);"><i class="bi bi-chevron-right me-1"></i> Features</a></li>
+						<li class="mb-2"><a href="#contact" class="text-decoration-none" style="color:var(--color-cool-gray);"><i class="bi bi-chevron-right me-1"></i> Contact</a></li>
+						<li class="mb-2"><a href="{{ url_for('auth.login') }}" class="text-decoration-none" style="color:var(--color-cool-gray);"><i class="bi bi-chevron-right me-1"></i> Login</a></li>
+					</ul>
+				</div>
+
+				<!-- Column 3 — Contact Us -->
+				<div id="contact" class="col-6 col-md-6 col-lg-3">
+					<h6 class="fw-bold text-uppercase mb-3" style="font-size: 0.88rem; letter-spacing: 0.05em;">Contact Us</h6>
+					<p class="small mb-2 text-white-50">
+						Official inquiries, onboarding, and platform support:
+					</p>
+					<div class="mt-2">
+						<a href="mailto:edumanage@gmail.com" class="text-decoration-none d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 text-white fw-semibold" style="background: rgba(229, 232, 239, 0.08); border: 1px solid rgba(229, 232, 239, 0.22); transition: all 0.2s ease;">
+							<span style="background:var(--color-mustard); color:var(--color-strong-blue); width:28px; height:28px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:.9rem;"><i class="bi bi-envelope-at-fill"></i></span>
+							<span>edumanage@gmail.com</span>
+						</a>
+					</div>
+					<div class="mt-3 text-white-50 small d-flex align-items-center gap-2">
+						<i class="bi bi-clock-history" style="color:var(--color-mustard);"></i>
+						<span>Support Hours: Mon – Fri (08:00 – 17:00 CAT)</span>
+					</div>
+				</div>
+
+				<!-- Column 4 — Download School-Magi App -->
+				<div class="col-12 col-md-6 col-lg-4">
+					<h6 class="fw-bold text-uppercase mb-3" style="font-size: 0.88rem; letter-spacing: 0.05em;">Download School-Magi App</h6>
+					<div class="p-3 rounded-3" style="background: rgba(229, 232, 239, 0.06); border: 1px solid rgba(229, 232, 239, 0.16);">
+						<div class="d-flex align-items-start gap-2 mb-2">
+							<div style="background: rgba(255, 184, 0, 0.2); color: var(--color-mustard); width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+								<i class="bi bi-phone-fill"></i>
+							</div>
+							<div>
+								<div class="fw-semibold text-white small">Installable Web Application</div>
+								<div class="text-white-50" style="font-size: 0.72rem;">Fast &bull; Offline-ready &bull; Standalone</div>
+							</div>
+						</div>
+						<p class="small mb-3" style="color:var(--color-cool-gray); line-height:1.5;">
+							Install School-Magi on your device for convenient access anytime.
+						</p>
+						<button type="button" id="pwa-install-trigger" class="pwa-install-btn w-100" style="background:var(--color-mustard); color:var(--color-strong-blue); border:none; border-radius:12px; padding:10px 18px; font-weight:700; font-size:.88rem; display:inline-flex; align-items:center; justify-content:center;">
+							<i class="bi bi-download me-2"></i> Install App
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Bottom Footer Line -->
+			<div class="mt-5 pt-4 border-top border-white-10 d-flex flex-column flex-md-row align-items-center justify-content-between gap-2 text-white-50 small" style="border-color: rgba(255,255,255,0.12) !important;">
+				<div>
+					&copy; 2026 School-Magi &bull; SchoolStacks Platform. All rights reserved.
+				</div>
+				<div class="d-flex align-items-center gap-3">
+					<span>Built for Zambian &amp; African Schools</span>
+					<span>&bull;</span>
+					<span style="color:var(--color-mustard);">Lipila Online Payments</span>
+				</div>
+			</div>
 		</div>
 	</footer>
 

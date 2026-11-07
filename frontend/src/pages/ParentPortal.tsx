@@ -18,6 +18,7 @@ const PARENT_NAV: NavItem[] = [
   { id: 'overview', label: 'Children Overview', icon: 'bi-people-fill' },
   { id: 'fees', label: 'Pay School Fees', icon: 'bi-credit-card-2-front-fill' },
   { id: 'results', label: 'Exam Results & Reports', icon: 'bi-award-fill' },
+  { id: 'timetable', label: 'Child Timetable', icon: 'bi-calendar3-week' },
   { id: 'exams', label: 'Examination Schedule', icon: 'bi-calendar-event-fill' },
   { id: 'assignments', label: 'Homework & Assignments', icon: 'bi-clipboard-check-fill' },
   { id: 'materials', label: 'Study Materials', icon: 'bi-folder-symlink-fill' },
@@ -272,16 +273,14 @@ export const ParentPortal: React.FC = () => {
               title={`Academic Results — ${child.first_name}`}
               className="mb-4"
               actions={
-                child.fee_balances?.[0] && (
-                  <a
-                    href={`/student/report-card/${child.id}/${child.fee_balances[0].term_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="edu-btn edu-btn-primary edu-btn-sm"
-                  >
-                    <i className="bi bi-file-earmark-pdf" /> Download PDF Report Card
-                  </a>
-                )
+                <a
+                  href={`/student/report-card/${child.id}/${child.terms?.[0]?.id || child.fee_balances?.[0]?.term_id || 1}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="edu-btn edu-btn-primary edu-btn-sm text-decoration-none"
+                >
+                  <i className="bi bi-file-earmark-pdf-fill me-1" /> Download Official Report Card (PDF)
+                </a>
               }
             >
               <DataTable
@@ -293,6 +292,60 @@ export const ParentPortal: React.FC = () => {
                   { header: 'Grade', render: (r) => <Badge variant="mustard">{r.grade}</Badge> },
                 ]}
               />
+            </Card>
+          )}
+
+          {/* ── CHILD TIMETABLE ── */}
+          {activeTab === 'timetable' && (
+            <Card
+              title={`Weekly Class Timetable — ${child.first_name} (${child.class_name})`}
+              subtitle="Daily lesson periods, subjects, and classroom venues"
+              className="mb-4"
+            >
+              {!child.timetable || child.timetable.length === 0 ? (
+                <div className="text-center py-4 text-muted">
+                  <i className="bi bi-calendar3-week fs-1 mb-2 d-block" />
+                  <div className="fw-bold">No Timetable Published</div>
+                  <div className="small">The school administrator has not published a timetable for {child.class_name} yet.</div>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => {
+                    const daySlots = child.timetable.filter((t: any) => t.day.toLowerCase() === day.toLowerCase());
+                    return (
+                      <div key={day} className="border rounded p-3 bg-light">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="fw-bold text-primary mb-0">{day}</h6>
+                          <Badge variant={daySlots.length > 0 ? 'blue' : 'neutral'}>
+                            {daySlots.length} Lesson{daySlots.length === 1 ? '' : 's'}
+                          </Badge>
+                        </div>
+                        {daySlots.length === 0 ? (
+                          <div className="text-muted small fst-italic">No classes scheduled on {day}.</div>
+                        ) : (
+                          <div className="row g-2">
+                            {daySlots.map((slot: any) => (
+                              <div key={slot.id} className="col-md-6 col-lg-4">
+                                <div className="card p-2 shadow-sm border h-100 bg-white">
+                                  <div className="d-flex justify-content-between align-items-center mb-1">
+                                    <span className="badge bg-primary-subtle text-primary fw-bold">
+                                      {slot.start_time} - {slot.end_time}
+                                    </span>
+                                    <span className="small text-muted">
+                                      <i className="bi bi-geo-alt me-1" /> {slot.room || 'Main Class'}
+                                    </span>
+                                  </div>
+                                  <div className="fw-bold fs-6 text-dark">{slot.subject_name}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           )}
 
@@ -430,22 +483,72 @@ export const ParentPortal: React.FC = () => {
 
           {/* ── ATTENDANCE TAB ── */}
           {activeTab === 'attendance' && (
-            <Card title={`Attendance Log — ${child.first_name}`}>
-              <DataTable
-                rows={child.attendance || []}
-                columns={[
-                  { header: 'Date', render: (a) => a.date },
-                  {
-                    header: 'Status',
-                    render: (a) => (
-                      <Badge variant={a.status === 'Present' ? 'success' : 'danger'}>
-                        {a.status}
-                      </Badge>
-                    ),
-                  },
-                ]}
-              />
-            </Card>
+            <>
+              <div className="row g-3 mb-4">
+                <div className="col-sm-6 col-xl-3">
+                  <StatCard
+                    icon="bi-pie-chart-fill"
+                    label="Attendance Rate"
+                    value={`${child.attendance_stats?.rate ?? 100}%`}
+                    variant="blue"
+                  />
+                </div>
+                <div className="col-sm-6 col-xl-3">
+                  <StatCard
+                    icon="bi-check-circle-fill"
+                    label="Days Present"
+                    value={child.attendance_stats?.present ?? 0}
+                    variant="blue"
+                  />
+                </div>
+                <div className="col-sm-6 col-xl-3">
+                  <StatCard
+                    icon="bi-x-circle-fill"
+                    label="Days Absent"
+                    value={child.attendance_stats?.absent ?? 0}
+                    variant="mustard"
+                  />
+                </div>
+                <div className="col-sm-6 col-xl-3">
+                  <StatCard
+                    icon="bi-calendar-check"
+                    label="Recorded Sessions"
+                    value={child.attendance_stats?.total ?? (child.attendance?.length || 0)}
+                  />
+                </div>
+              </div>
+
+              <Card
+                title={`Attendance Register — ${child.first_name} ${child.last_name}`}
+                subtitle={`Showing last 30 recorded roll calls for class ${child.class_name}`}
+              >
+                <DataTable
+                  rows={child.attendance || []}
+                  columns={[
+                    {
+                      header: 'Date',
+                      render: (a) => <span className="fw-bold">{a.date}</span>,
+                    },
+                    {
+                      header: 'Status',
+                      render: (a) => {
+                        let badgeVar: any = 'neutral';
+                        if (a.status === 'Present') badgeVar = 'success';
+                        else if (a.status === 'Late') badgeVar = 'mustard';
+                        else if (a.status === 'Absent') badgeVar = 'danger';
+                        else if (a.status === 'Sick') badgeVar = 'mustard';
+                        else if (a.status === 'Excused') badgeVar = 'blue';
+                        return <Badge variant={badgeVar}>{a.status}</Badge>;
+                      },
+                    },
+                    {
+                      header: 'Remarks',
+                      render: (a) => a.remarks || '—',
+                    },
+                  ]}
+                />
+              </Card>
+            </>
           )}
 
           {/* ── ANNOUNCEMENTS TAB ── */}

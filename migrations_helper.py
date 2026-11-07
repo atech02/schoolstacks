@@ -19,6 +19,7 @@ REQUIRED_COLUMNS = {
     ],
     "users": [
         ("last_login_at", "TIMESTAMP"),
+        ("must_change_password", "BOOLEAN DEFAULT FALSE"),
     ],
     "subscriptions": [
         ("lipila_reference_id", "VARCHAR(100)"),
@@ -88,6 +89,12 @@ REQUIRED_COLUMNS = {
         ("term_id", "INTEGER"),
         ("is_archived", "BOOLEAN DEFAULT FALSE"),
         ("file_size", "INTEGER"),
+    ],
+    "sms_settings": [
+        ("provider", "VARCHAR(50) DEFAULT 'easysendsms'"),
+    ],
+    "sms_messages": [
+        ("provider", "VARCHAR(50) DEFAULT 'easysendsms'"),
     ],
 }
 

@@ -15,6 +15,7 @@ import {
 
 const TEACHER_NAV: NavItem[] = [
   { id: 'dashboard', label: 'Teacher Dashboard', icon: 'bi-speedometer2' },
+  { id: 'timetable', label: 'My Timetable', icon: 'bi-calendar3-week' },
   { id: 'attendance', label: 'Mark Attendance', icon: 'bi-calendar2-check-fill' },
   { id: 'results', label: 'Enter Exam Marks', icon: 'bi-journal-check' },
   { id: 'assignments', label: 'Assignments & Grading', icon: 'bi-clipboard2-check-fill' },
@@ -42,6 +43,7 @@ export const TeacherPortal: React.FC = () => {
     updated_at: string | null;
   } | null>(null);
   const [attIsEditing, setAttIsEditing] = useState(false);
+  const [attRemarksMap, setAttRemarksMap] = useState<Record<number, string>>({});
 
   // Results state
   const [resClassId, setResClassId] = useState('');
@@ -49,6 +51,12 @@ export const TeacherPortal: React.FC = () => {
   const [resExamId, setResExamId] = useState('');
   const [resStudents, setResStudents] = useState<any[]>([]);
   const [marksMap, setMarksMap] = useState<Record<number, string>>({});
+  const [resRemarksMap, setResRemarksMap] = useState<Record<number, string>>({});
+  const [resOverallStatus, setResOverallStatus] = useState<string>('unrecorded');
+
+  // Timetable state
+  const [timetableData, setTimetableData] = useState<any[]>([]);
+  const [timetableLoading, setTimetableLoading] = useState(false);
 
   // Assignment form & submissions modal
   const [assignForm, setAssignForm] = useState({
@@ -74,7 +82,9 @@ export const TeacherPortal: React.FC = () => {
     try {
       const res = await apiFetch('/api/teacher/overview');
       setData(res);
-      if (res.classes?.[0] && !attClassId) {
+      if (res.assigned_class?.id && !attClassId) {
+        setAttClassId(String(res.assigned_class.id));
+      } else if (res.classes?.[0] && !attClassId) {
         setAttClassId(String(res.classes[0].id));
       }
     } catch (err: any) {
@@ -118,6 +128,7 @@ export const TeacherPortal: React.FC = () => {
         body: JSON.stringify({
           date: attDate,
           records: attMap,
+          remarks: attRemarksMap,
           allow_edit: attIsEditing,
         }),
       });
@@ -128,7 +139,7 @@ export const TeacherPortal: React.FC = () => {
     }
   };
 
-  const markAllStatus = (status: 'Present' | 'Absent') => {
+  const markAllStatus = (status: 'Present' | 'Absent' | 'Late' | 'Excused' | 'Sick') => {
     const updated: Record<number, string> = {};
     attStudents.forEach((s) => {
       updated[s.id] = status;
@@ -143,23 +154,31 @@ export const TeacherPortal: React.FC = () => {
         `/api/teacher/results/${resClassId}/${resSubjId}/${resExamId}`
       );
       setResStudents(res.students || []);
+      setResOverallStatus(res.overall_status || 'unrecorded');
       const m: Record<number, string> = {};
+      const rem: Record<number, string> = {};
       (res.students || []).forEach((s: any) => {
         m[s.id] = s.marks !== '' && s.marks !== undefined ? String(s.marks) : '';
+        rem[s.id] = s.remarks || '';
       });
       setMarksMap(m);
+      setResRemarksMap(rem);
     } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const saveResults = async () => {
+  const saveResults = async (action: 'save_draft' | 'submit_for_approval' = 'submit_for_approval') => {
     try {
       const res = await apiFetch(
         `/api/teacher/results/${resClassId}/${resSubjId}/${resExamId}`,
         {
           method: 'POST',
-          body: JSON.stringify({ marks: marksMap }),
+          body: JSON.stringify({
+            marks: marksMap,
+            remarks: resRemarksMap,
+            action,
+          }),
         }
       );
       setMessage(res.message);
@@ -168,6 +187,24 @@ export const TeacherPortal: React.FC = () => {
       setError(err.message);
     }
   };
+
+  const loadTimetable = useCallback(async () => {
+    setTimetableLoading(true);
+    try {
+      const res = await apiFetch('/api/teacher/timetable');
+      setTimetableData(res.timetable || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setTimetableLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'timetable') {
+      loadTimetable();
+    }
+  }, [activeTab, loadTimetable]);
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,6 +328,123 @@ export const TeacherPortal: React.FC = () => {
 
       {activeTab === 'dashboard' && (
         <>
+          {data?.assigned_class && (
+            <div
+              className="card border-0 shadow-sm mb-4 overflow-hidden"
+              style={{
+                borderRadius: '1rem',
+                borderLeft: '6px solid #FFB800',
+                backgroundColor: '#ffffff',
+              }}
+            >
+              <div className="card-body p-4">
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                  <div>
+                    <div className="d-flex align-items-center gap-2 mb-2">
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: '#002583',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          padding: '0.4rem 0.75rem',
+                          borderRadius: '0.5rem',
+                        }}
+                      >
+                        <i className="bi bi-person-badge-fill me-1" />
+                        {data.assigned_class.is_substitute
+                          ? 'Active Substitute Class Teacher'
+                          : 'Designated Class Teacher'}
+                      </span>
+                      {data.assigned_class.attendance_status === 'submitted' ? (
+                        <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-1" style={{ borderRadius: '0.5rem', fontSize: '0.8rem' }}>
+                          <i className="bi bi-check-circle-fill me-1" />
+                          Today's Attendance: Submitted
+                          {data.assigned_class.submitted_at &&
+                            ` (${new Date(data.assigned_class.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`}
+                        </span>
+                      ) : (
+                        <span
+                          className="badge border px-3 py-1"
+                          style={{
+                            backgroundColor: '#FFF8E1',
+                            color: '#B78103',
+                            borderColor: '#FFD54F',
+                            borderRadius: '0.5rem',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <i className="bi bi-exclamation-triangle-fill text-warning me-1" />
+                          Today's Attendance: Not Started
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="h4 fw-bold text-dark mb-1">
+                      {data.assigned_class.name}
+                      {data.assigned_class.section ? ` • Section ${data.assigned_class.section}` : ''}
+                    </h3>
+                    <p className="text-muted small mb-0">
+                      Total Roll: <strong>{data.assigned_class.total_students} students</strong>
+                      {data.assigned_class.boys_count !== undefined && (
+                        <span>
+                          {' '}({data.assigned_class.boys_count} Boys, {data.assigned_class.girls_count} Girls)
+                        </span>
+                      )}
+                      {data.assigned_class.attendance_status === 'submitted' && (
+                        <span className="ms-2">
+                          | Present:{' '}
+                          <strong className="text-success">{data.assigned_class.present_count}</strong>, Absent:{' '}
+                          <strong className="text-danger">{data.assigned_class.absent_count}</strong>
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn fw-bold px-4 py-2 shadow-sm"
+                      style={{
+                        backgroundColor: '#FFB800',
+                        color: '#002583',
+                        borderRadius: '0.6rem',
+                        border: 'none',
+                        fontSize: '0.95rem',
+                      }}
+                      onClick={() => {
+                        setAttClassId(String(data.assigned_class.id));
+                        setActiveTab('attendance');
+                        loadAttendanceSheet(String(data.assigned_class.id), attDate);
+                      }}
+                    >
+                      <i className="bi bi-clipboard2-check-fill me-2" />
+                      Take Daily Attendance
+                    </button>
+                  </div>
+                </div>
+
+                {data.assigned_class.timetable && data.assigned_class.timetable.length > 0 && (
+                  <div className="mt-3 pt-3 border-top">
+                    <div className="text-uppercase text-muted fw-bold mb-2" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
+                      <i className="bi bi-calendar3 me-1" /> Assigned Class Timetable
+                    </div>
+                    <div className="d-flex gap-2 flex-wrap">
+                      {data.assigned_class.timetable.slice(0, 5).map((tt: any) => (
+                        <div key={tt.id} className="p-2 border rounded-3 bg-light small" style={{ minWidth: '135px' }}>
+                          <div className="fw-semibold text-truncate">{tt.subject_name}</div>
+                          <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                            {tt.day} {tt.start_time}-{tt.end_time}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="row g-3 mb-4">
             <div className="col-sm-6 col-xl-3">
               <StatCard
@@ -399,6 +553,69 @@ export const TeacherPortal: React.FC = () => {
         </>
       )}
 
+      {/* ── TIMETABLE TAB ── */}
+      {activeTab === 'timetable' && (
+        <Card
+          title="My Weekly Teaching Timetable"
+          subtitle="Assigned lesson periods, classes, subjects and room allocations"
+          actions={
+            <Button size="sm" variant="outline" onClick={loadTimetable}>
+              <i className="bi bi-arrow-clockwise me-1" /> Refresh
+            </Button>
+          }
+        >
+          {timetableLoading ? (
+            <LoadingState message="Loading weekly timetable schedule..." />
+          ) : timetableData.length === 0 ? (
+            <div className="text-center py-4 text-muted">
+              <i className="bi bi-calendar3-week fs-1 mb-2 d-block" />
+              <div className="fw-bold">No Timetable Periods Assigned</div>
+              <div className="small">Your school administrator has not scheduled lesson periods for your profile yet.</div>
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-4">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => {
+                const daySlots = timetableData.filter((t) => t.day.toLowerCase() === day.toLowerCase());
+                return (
+                  <div key={day} className="border rounded p-3 bg-light">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h6 className="fw-bold text-primary mb-0">{day}</h6>
+                      <Badge variant={daySlots.length > 0 ? 'blue' : 'neutral'}>
+                        {daySlots.length} Lesson{daySlots.length === 1 ? '' : 's'}
+                      </Badge>
+                    </div>
+                    {daySlots.length === 0 ? (
+                      <div className="text-muted small fst-italic">No classes scheduled on {day}.</div>
+                    ) : (
+                      <div className="row g-2">
+                        {daySlots.map((slot) => (
+                          <div key={slot.id} className="col-md-6 col-lg-4">
+                            <div className="card p-2 shadow-sm border h-100 bg-white">
+                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                <span className="badge bg-primary-subtle text-primary fw-bold">
+                                  {slot.start_time} - {slot.end_time}
+                                </span>
+                                <span className="small text-muted">
+                                  <i className="bi bi-geo-alt me-1" /> {slot.room}
+                                </span>
+                              </div>
+                              <div className="fw-bold fs-6 text-dark">{slot.subject_name}</div>
+                              <div className="small text-secondary">
+                                <i className="bi bi-door-closed me-1" /> Class: <strong>{slot.class_name}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* ── ATTENDANCE TAB ── */}
       {activeTab === 'attendance' && (
         <Card
@@ -420,7 +637,7 @@ export const TeacherPortal: React.FC = () => {
                 <option value="">-- Select Your Class --</option>
                 {classes.map((c: any) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} {data?.assigned_class?.id === c.id ? '★ (My Assigned Class)' : ''}
                   </option>
                 ))}
               </select>
@@ -518,14 +735,14 @@ export const TeacherPortal: React.FC = () => {
                 <table className="edu-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '20%' }}>Admission No</th>
-                      <th style={{ width: '45%' }}>Student Name</th>
-                      <th style={{ width: '35%' }}>Status</th>
+                      <th style={{ width: '15%' }}>Admission No</th>
+                      <th style={{ width: '30%' }}>Student Name</th>
+                      <th style={{ width: '25%' }}>Status</th>
+                      <th style={{ width: '30%' }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {attStudents.map((s) => {
-                      const isPresent = attMap[s.id] === 'Present';
                       return (
                         <tr key={s.id}>
                           <td>
@@ -535,26 +752,29 @@ export const TeacherPortal: React.FC = () => {
                             {s.first_name} {s.last_name}
                           </td>
                           <td>
-                            <div className="d-flex gap-2">
-                              <Button
-                                size="sm"
-                                variant={isPresent ? 'accent' : 'outline'}
-                                disabled={!attIsEditing}
-                                icon="bi-check-lg"
-                                onClick={() => setAttMap({ ...attMap, [s.id]: 'Present' })}
-                              >
-                                Present
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={!isPresent ? 'danger' : 'outline'}
-                                disabled={!attIsEditing}
-                                icon="bi-x-lg"
-                                onClick={() => setAttMap({ ...attMap, [s.id]: 'Absent' })}
-                              >
-                                Absent
-                              </Button>
-                            </div>
+                            <select
+                              className="edu-select py-1"
+                              disabled={!attIsEditing}
+                              value={attMap[s.id] || 'Present'}
+                              onChange={(e) => setAttMap({ ...attMap, [s.id]: e.target.value })}
+                            >
+                              <option value="Present">Present</option>
+                              <option value="Late">Late</option>
+                              <option value="Absent">Absent</option>
+                              <option value="Excused">Excused</option>
+                              <option value="Sick">Sick</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              className="edu-input py-1"
+                              placeholder="Optional note"
+                              disabled={!attIsEditing}
+                              value={attRemarksMap[s.id] || ''}
+                              onChange={(e) =>
+                                setAttRemarksMap({ ...attRemarksMap, [s.id]: e.target.value })
+                              }
+                            />
                           </td>
                         </tr>
                       );
@@ -646,14 +866,58 @@ export const TeacherPortal: React.FC = () => {
 
           {resStudents.length > 0 && (
             <>
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 bg-light border rounded">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="small fw-bold">Submission Status:</span>
+                  <Badge
+                    variant={
+                      resOverallStatus === 'published'
+                        ? 'success'
+                        : resOverallStatus === 'submitted'
+                        ? 'mustard'
+                        : 'neutral'
+                    }
+                  >
+                    {resOverallStatus.toUpperCase()}
+                  </Badge>
+                  {resOverallStatus === 'submitted' && (
+                    <span className="small text-muted fst-italic">
+                      Submitted for Administrator Approval
+                    </span>
+                  )}
+                  {resOverallStatus === 'published' && (
+                    <span className="small text-success fst-italic">
+                      Approved & Published to Students / Parents
+                    </span>
+                  )}
+                </div>
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="outline"
+                    icon="bi-save"
+                    onClick={() => saveResults('save_draft')}
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    variant="accent"
+                    icon="bi-send-check-fill"
+                    onClick={() => saveResults('submit_for_approval')}
+                  >
+                    Submit for Approval
+                  </Button>
+                </div>
+              </div>
+
               <div className="edu-table-wrap mb-3">
                 <table className="edu-table">
                   <thead>
                     <tr>
-                      <th>Admission No</th>
-                      <th>Student Name</th>
-                      <th>Exam Score (0 - 100%)</th>
-                      <th>Calculated ECZ Grade</th>
+                      <th style={{ width: '15%' }}>Admission No</th>
+                      <th style={{ width: '25%' }}>Student Name</th>
+                      <th style={{ width: '18%' }}>Score (0 - 100%)</th>
+                      <th style={{ width: '12%' }}>Grade</th>
+                      <th style={{ width: '30%' }}>Performance Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -663,7 +927,7 @@ export const TeacherPortal: React.FC = () => {
                         <td className="fw-bold">
                           {s.first_name} {s.last_name}
                         </td>
-                        <td style={{ maxWidth: 160 }}>
+                        <td style={{ maxWidth: 140 }}>
                           <input
                             type="number"
                             min={0}
@@ -678,14 +942,21 @@ export const TeacherPortal: React.FC = () => {
                         <td>
                           <Badge variant="mustard">{s.grade}</Badge>
                         </td>
+                        <td>
+                          <input
+                            className="edu-input py-1"
+                            placeholder="Student remarks"
+                            value={resRemarksMap[s.id] ?? ''}
+                            onChange={(e) =>
+                              setResRemarksMap({ ...resRemarksMap, [s.id]: e.target.value })
+                            }
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <Button variant="accent" icon="bi-save" onClick={saveResults}>
-                Save Exam Marks
-              </Button>
             </>
           )}
         </Card>
